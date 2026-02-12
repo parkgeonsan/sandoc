@@ -1,0 +1,298 @@
+{
+  "templateName": "2025년도 창업도약패키지(일반형) 사업계획서",
+  "format": "HWP 5.1.0.1 (OLE2 Compound Document)",
+  "compressed": true,
+  "encrypted": false,
+
+  "paperSize": {
+    "type": "A4",
+    "width": "210.0mm",
+    "height": "297.0mm"
+  },
+
+  "margins": {
+    "top": "10.0mm",
+    "bottom": "15.0mm",
+    "left": "20.0mm",
+    "right": "20.0mm",
+    "header": "15.0mm",
+    "footer": "10.0mm",
+    "gutter": "0.0mm"
+  },
+
+  "fonts": [
+    { "name": "맑은 고딕", "role": "본문 (Body text)", "sizes": ["10pt", "11pt"], "notes": "가장 많이 사용되는 본문 폰트" },
+    { "name": "함초롬바탕", "role": "본문/강조", "sizes": ["10pt", "16pt"], "notes": "한글 본문용 세리프" },
+    { "name": "함초롬돋움", "role": "본문 보조", "sizes": ["9pt", "10pt"], "notes": "한글 산세리프 보조" },
+    { "name": "한컴바탕", "role": "기본 바탕글", "sizes": ["9pt", "10pt", "11pt", "16pt"], "notes": "한컴오피스 기본 세리프" },
+    { "name": "HY헤드라인M", "role": "대제목/타이틀", "sizes": ["10.5pt", "14pt", "16pt", "18pt"], "notes": "섹션 대제목용 헤드라인 폰트" },
+    { "name": "HY울릉도M", "role": "부제목", "sizes": ["13pt", "14pt", "16pt", "18pt"], "notes": "HY헤드라인M과 쌍으로 사용" },
+    { "name": "휴먼명조", "role": "섹션 타이틀/번호", "sizes": ["4pt", "6pt", "8pt", "10pt", "12pt", "13pt", "14pt", "15pt", "16pt"], "notes": "섹션 번호/타이틀 장식용" },
+    { "name": "신명 신문명조", "role": "보조 타이틀", "sizes": ["8pt", "10pt", "10.5pt"], "notes": "전통적 명조 장식용" },
+    { "name": "한양견고딕", "role": "보조 고딕", "sizes": ["8pt", "10pt"], "notes": "강조 보조용" },
+    { "name": "한양신명조", "role": "보조 명조", "sizes": ["varies"], "notes": "스크립트별 폰트 할당" },
+    { "name": "한양중고딕", "role": "보조 고딕", "sizes": ["varies"], "notes": "스크립트별 폰트 할당" }
+  ],
+
+  "characterStyles": {
+    "bodyText": {
+      "font": "맑은 고딕",
+      "size": "10pt",
+      "bold": false,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "bodyTextAlt": {
+      "font": "함초롬바탕 / 함초롬돋움",
+      "size": "10pt",
+      "bold": false,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "sectionTitle": {
+      "font": "HY헤드라인M / HY울릉도M",
+      "size": "18pt",
+      "bold": false,
+      "italic": true,
+      "color": "rgb(0,0,255)",
+      "notes": "대분류 타이틀 (1. 문제인식 등)"
+    },
+    "sectionSubTitle": {
+      "font": "HY헤드라인M / HY울릉도M",
+      "size": "14-16pt",
+      "bold": false,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "coverTitle": {
+      "font": "휴먼명조",
+      "size": "16pt",
+      "bold": false,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "instructionText": {
+      "font": "맑은 고딕",
+      "size": "10pt",
+      "bold": false,
+      "italic": true,
+      "color": "rgb(0,0,255)",
+      "notes": "파란색 안내 문구 (삭제 후 작성)"
+    },
+    "tableCell": {
+      "font": "맑은 고딕",
+      "size": "9-10pt",
+      "bold": false,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "tableHeader": {
+      "font": "맑은 고딕",
+      "size": "10pt",
+      "bold": true,
+      "italic": false,
+      "color": "rgb(0,0,0)"
+    },
+    "emphasis": {
+      "font": "맑은 고딕",
+      "size": "11pt",
+      "bold": true,
+      "italic": false,
+      "underline": true
+    }
+  },
+
+  "paragraphStyles": {
+    "default": {
+      "alignment": "justify",
+      "lineSpacing": 160,
+      "lineSpacingUnit": "percent",
+      "marginLeft": "0cm",
+      "marginRight": "0cm",
+      "indent": "0cm"
+    },
+    "outline1": {
+      "alignment": "justify",
+      "lineSpacing": 160,
+      "marginLeft": "1.06cm"
+    },
+    "outline2": {
+      "alignment": "justify",
+      "lineSpacing": 160,
+      "marginLeft": "1.41cm"
+    },
+    "outline3": {
+      "alignment": "justify",
+      "lineSpacing": 160,
+      "marginLeft": "2.12cm"
+    },
+    "tableCell": {
+      "alignment": "justify",
+      "lineSpacing": 130,
+      "notes": "표 셀 내부 기본"
+    },
+    "tableCellCenter": {
+      "alignment": "distribute",
+      "lineSpacing": 130,
+      "notes": "표 헤더 셀"
+    },
+    "sectionTitle": {
+      "alignment": "distribute",
+      "lineSpacing": 160,
+      "spacingTop": 2400,
+      "spacingBottom": 600,
+      "notes": "HWP units (1/7200 inch)"
+    }
+  },
+
+  "namedStyles": [
+    { "name": "바탕글", "en": "Normal", "usage": "기본 텍스트" },
+    { "name": "본문", "en": "Body", "usage": "본문 텍스트" },
+    { "name": "개요 1~10", "en": "Outline 1~10", "usage": "단계별 개요 (들여쓰기)" },
+    { "name": "표내용", "en": "Table Content", "usage": "표 셀 내 텍스트" },
+    { "name": "(견고딕14)", "en": "", "usage": "커스텀 헤더 스타일" }
+  ],
+
+  "sections": [
+    {
+      "title": "□ 신청 및 일반현황",
+      "tables": [
+        { "purpose": "목차 테이블", "rows": 13, "cols": 2, "description": "사업계획서 작성 목차 및 항목 안내" },
+        { "purpose": "기업정보", "rows": 2, "cols": 4, "description": "기업명, 개업연월일, 사업자구분, 대표자유형" },
+        { "purpose": "사업비 구성", "rows": 9, "cols": 11, "description": "총사업비, 정부지원, 자기부담 구성" },
+        { "purpose": "아이템 정보", "rows": 7, "cols": 5, "description": "아이템명, 지원분야, 전문기술분야, 성공환원형" }
+      ],
+      "inputFields": ["기업명", "개업연월일", "사업자구분", "대표자유형", "창업아이템명", "지원분야", "전문기술분야", "성공환원형신청여부", "사업비금액"]
+    },
+    {
+      "title": "□ 창업아이템 개요 및 사업화 계획(요약)",
+      "maxPages": 2,
+      "tables": [
+        { "purpose": "아이템 개요", "rows": "dynamic", "cols": 2, "description": "아이템명, 범주, 개요, 이미지, 로드맵, 산출물 목표" }
+      ],
+      "inputFields": ["아이템명", "범주", "아이템개요", "이미지삽입", "중장기사업로드맵", "협약기간내로드맵", "산출물목표"]
+    },
+    {
+      "title": "1. 문제인식(Problem)",
+      "subsections": [
+        {
+          "title": "1. 창업아이템 개발 동기(필요성) 및 현황",
+          "format": "자유작성 (◦ / - 구조)",
+          "guidance": "외부/내부 배경, 문제점과 해결방안, 추진 경과"
+        }
+      ]
+    },
+    {
+      "title": "2. 실현가능성(Solution)",
+      "subsections": [
+        {
+          "title": "2-1. 창업아이템 목표시장(고객) 분석",
+          "format": "자유작성 (◦ / - 구조)",
+          "guidance": "핵심 기능/성능, 경쟁사 비교, 차별성"
+        },
+        {
+          "title": "2-2. 창업아이템 사업화 추진 성과",
+          "format": "자유작성 + 표",
+          "tables": [
+            { "purpose": "목표시장별 매출 실적", "rows": 6, "cols": 7, "headers": ["순번", "목표시장(고객)", "제품·서비스", "진입시기", "판매량", "가격", "발생매출액"] }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "3. 성장전략(Scale-up)",
+      "subsections": [
+        {
+          "title": "3-1. 창업아이템 사업화 추진 전략",
+          "format": "자유작성 + 표",
+          "tables": [
+            { "purpose": "추정 매출(협약기간 내)", "rows": 6, "cols": 7, "headers": ["순번", "목표시장(고객)", "제품·서비스", "진출시기", "판매량", "가격", "판매금액"] },
+            { "purpose": "사업 추진 일정", "rows": 6, "cols": 4, "headers": ["순번", "추진내용", "추진기간", "세부내용"] }
+          ]
+        },
+        {
+          "title": "3-2. 자금운용 계획",
+          "subsections": [
+            {
+              "title": "3-2-1. 사업비 집행계획 및 사업비 구성",
+              "tables": [
+                { "purpose": "사업비 집행계획", "rows": 4, "cols": 4, "headers": ["총사업비", "정부지원사업비", "현금", "현물"] },
+                { "purpose": "사업비 구성", "rows": 9, "cols": 3, "headers": ["산출근거", "총사업비(원)", "합계(백만원)", "비율(%)"] }
+              ]
+            },
+            {
+              "title": "3-2-2. 향후 자금 조달계획",
+              "format": "자유작성 (◦ / - 구조)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "4. 기업 구성(Team)",
+      "subsections": [
+        {
+          "title": "4-1. 기업구성 및 보유 역량",
+          "subsections": [
+            {
+              "title": "4-1-1. 대표자 역량",
+              "format": "자유작성 (◦ / - 구조)"
+            },
+            {
+              "title": "4-1-2. 전문 인력 고용 및 활용 계획",
+              "tables": [
+                { "purpose": "전문 인력 현황", "rows": 8, "cols": 9, "headers": ["고용여부", "순번", "직위", "담당업무", "보유역량"], "maxEntries": 10 }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "4-2. 보유 인프라 등 활용 계획",
+          "tables": [
+            { "purpose": "보유 인프라", "rows": 6, "cols": 4, "headers": ["순번", "유형", "활용계획", "위치"], "maxEntries": 10 },
+            { "purpose": "산업재산권", "rows": 6, "cols": 5, "headers": ["순번", "유형", "산업재산권명", "등록번호", "등록일"], "maxEntries": 10 }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "documentStructure": {
+    "totalParagraphs": 554,
+    "totalTextRecords": 401,
+    "totalTables": 38,
+    "significantTables": {
+      "dataInputTables": 10,
+      "layoutTables": 18,
+      "singleCellBoxes": 10,
+      "note": "1x1 tables are used as bordered text boxes for instructions/notes"
+    },
+    "bodyTextSections": 1,
+    "decompressedSize": "82,528 bytes"
+  },
+
+  "numbering": {
+    "level1": { "pattern": "□ / 1. 2. 3. 4.", "example": "□ 신청 및 일반현황, 1. 문제인식(Problem)" },
+    "level2": { "pattern": "1-1. / 2-1. / 3-1.", "example": "2-1. 창업아이템 목표시장(고객) 분석" },
+    "level3": { "pattern": "3-2-1. / 4-1-1.", "example": "3-2-1. 사업비 집행계획 및 사업비 구성" },
+    "bulletLevel1": { "pattern": "◦", "margin": "0cm" },
+    "bulletLevel2": { "pattern": "-", "margin": "~1cm indent" }
+  },
+
+  "specialElements": {
+    "instructionText": {
+      "color": "blue (rgb 0,0,255)",
+      "italic": true,
+      "prefix": "※",
+      "action": "삭제 후 검정 글씨로 작성"
+    },
+    "placeholders": {
+      "pattern": "OO / OOOOO / 00백만원",
+      "description": "사용자가 채워야 할 필드"
+    },
+    "checkboxes": {
+      "format": "텍스트 기반 (개인사업자 / 법인사업자)",
+      "description": "선택형 필드는 슬래시(/)로 구분"
+    }
+  }
+}
