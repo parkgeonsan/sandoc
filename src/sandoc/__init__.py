@@ -11,6 +11,8 @@ from sandoc.analyzer import analyze_template, analyze_announcement, classify_doc
 from sandoc.style import StyleProfile, extract_style_profile, load_style_profile
 from sandoc.schema import CompanyInfo, create_sample_company
 from sandoc.generator import PlanGenerator, GeneratedSection, GeneratedPlan
+from sandoc.hwpx_engine import HwpxBuilder, StyleMirror, validate_hwpx, edit_hwpx_text
+from sandoc.output import OutputPipeline, BuildResult, build_hwpx_from_plan, build_hwpx_from_json
 
 __all__ = [
     # parser
@@ -32,4 +34,14 @@ __all__ = [
     "PlanGenerator",
     "GeneratedSection",
     "GeneratedPlan",
+    # hwpx_engine
+    "HwpxBuilder",
+    "StyleMirror",
+    "validate_hwpx",
+    "edit_hwpx_text",
+    # output
+    "OutputPipeline",
+    "BuildResult",
+    "build_hwpx_from_plan",
+    "build_hwpx_from_json",
 ]

@@ -6,6 +6,7 @@ Usage:
     sandoc classify <folder>   폴더 내 문서 분류
     sandoc profile <hwp_file>  HWP 스타일 프로파일 추출
     sandoc generate [options]  사업계획서 생성 파이프라인
+    sandoc build [options]     사업계획서 HWPX 출력 (스타일 미러링)
 """
 
 from __future__ import annotations
@@ -334,6 +335,154 @@ def generate(
     click.echo(f"💾 섹션 파일: {sections_dir}/")
     click.echo(f"\n✅ 사업계획서 생성 완료!")
     click.echo(f"   출력 디렉토리: {output_dir}")
+
+
+# ── build ─────────────────────────────────────────────────────────
+
+@main.command()
+@click.option("--company-info", "-c", type=click.Path(exists=True), default=None,
+              help="회사 정보 JSON 파일")
+@click.option("--plan", "-p", type=click.Path(exists=True), default=None,
+              help="기생성된 plan.json 파일 (있으면 콘텐츠 생성 건너뜀)")
+@click.option("--style", "-s", type=click.Path(exists=True), default=None,
+              help="스타일 프로파일 JSON")
+@click.option("--template", "-t", type=click.Path(exists=True), default=None,
+              help="HWP 양식 파일")
+@click.option("--announcement", "-a", type=click.Path(exists=True), default=None,
+              help="PDF 공고문 파일")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="결과 저장 디렉토리")
+@click.option("--sample", is_flag=True, default=False,
+              help="샘플 회사 정보로 데모 실행")
+def build(
+    company_info: str | None,
+    plan: str | None,
+    style: str | None,
+    template: str | None,
+    announcement: str | None,
+    output: str | None,
+    sample: bool,
+) -> None:
+    """사업계획서를 HWPX 파일로 출력합니다 (스타일 미러링).
+
+    generate 와 달리 최종 HWPX 파일까지 생성합니다.
+    기존 plan.json 이 있으면 콘텐츠 생성을 건너뛰고 HWPX 만 빌드합니다.
+
+    \b
+    예시:
+      sandoc build --sample                                 # 샘플 데모 → HWPX
+      sandoc build -c company.json -s style-profile.json     # 스타일 미러링 빌드
+      sandoc build -p plan.json -s style-profile.json        # 기존 plan → HWPX
+      sandoc build --sample -o output/my_plan                # 출력 디렉토리 지정
+    """
+    from sandoc.output import OutputPipeline
+    from sandoc.schema import CompanyInfo, create_sample_company
+
+    # 1. 회사 정보 로드
+    if sample:
+        click.echo("📋 샘플 회사 정보 사용 (데모 모드)")
+        company = create_sample_company()
+    elif company_info:
+        click.echo(f"📋 회사 정보 로드: {company_info}")
+        company = CompanyInfo.from_file(company_info)
+    elif plan:
+        # plan.json 만 있으면 최소한의 CompanyInfo 생성
+        click.echo(f"📋 plan.json 에서 빌드: {plan}")
+        plan_data = json.loads(Path(plan).read_text(encoding="utf-8"))
+        company = CompanyInfo(company_name=plan_data.get("company_name", "sandoc"))
+    else:
+        click.echo("❌ --company-info, --plan, 또는 --sample 옵션이 필요합니다.", err=True)
+        click.echo("   sandoc build --sample                     # 데모 모드", err=True)
+        click.echo("   sandoc build -c company.json              # 회사 정보 JSON", err=True)
+        click.echo("   sandoc build -p plan.json                 # 기존 plan.json", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"   기업명: {company.company_name}")
+
+    # 2. 양식/공고문 분석 (선택)
+    template_analysis = {}
+    announcement_analysis = {}
+
+    if template:
+        click.echo(f"\n📄 양식 분석 중: {Path(template).name}")
+        from sandoc.analyzer import analyze_template as _at
+        ta = _at(template)
+        template_analysis = {
+            "sections": [{"title": s.title, "level": s.level} for s in ta.sections],
+            "tables_count": ta.tables_count,
+        }
+        click.echo(f"   {len(ta.sections)}개 섹션, {ta.tables_count}개 표")
+
+    if announcement:
+        click.echo(f"\n📄 공고문 분석 중: {Path(announcement).name}")
+        from sandoc.analyzer import analyze_announcement as _aa
+        aa = _aa(announcement)
+        announcement_analysis = {
+            "title": aa.title,
+            "scoring_criteria": [{"item": c.item, "score": c.score} for c in aa.scoring_criteria],
+        }
+        click.echo(f"   {len(aa.scoring_criteria)}개 평가항목")
+
+    # 3. 출력 디렉토리 설정
+    output_dir = Path(output) if output else Path("output") / company.company_name.replace(" ", "_")
+
+    # 4. 스타일 정보 표시
+    if style:
+        click.echo(f"\n🎨 스타일 프로파일: {Path(style).name}")
+    else:
+        click.echo(f"\n🎨 기본 스타일 사용 (A4, 맑은 고딕 10pt)")
+
+    # 5. 출력 파이프라인 실행
+    click.echo(f"\n📦 HWPX 빌드 중...")
+
+    pipeline = OutputPipeline(
+        company_info=company,
+        output_dir=output_dir,
+        style_profile_path=style,
+        template_analysis=template_analysis,
+        announcement_analysis=announcement_analysis,
+        plan_json_path=plan,
+    )
+
+    result = pipeline.run()
+
+    # 6. 결과 출력
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📦 빌드 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result.success else '❌ 실패'}")
+    click.echo(f"  섹션 수: {result.section_count}")
+    click.echo(f"  총 글자수: {result.total_chars:,}")
+
+    if result.hwpx_path:
+        click.echo(f"\n📄 HWPX: {result.hwpx_path}")
+    if result.plan_json_path:
+        click.echo(f"💾 Plan JSON: {result.plan_json_path}")
+    if result.sections_dir:
+        click.echo(f"💾 섹션 파일: {result.sections_dir}/")
+    if result.prompts_dir:
+        click.echo(f"💾 프롬프트: {result.prompts_dir}/")
+
+    if result.validation:
+        v = result.validation
+        click.echo(f"\n🔍 HWPX 검증:")
+        click.echo(f"  유효성: {'✅' if v.get('valid') else '❌'}")
+        click.echo(f"  파일 수: {v.get('file_count', 0)}")
+        click.echo(f"  섹션 수: {v.get('section_count', 0)}")
+        if v.get("errors"):
+            click.echo(f"  오류: {', '.join(v['errors'])}")
+
+    if result.errors:
+        click.echo(f"\n⚠️  오류:")
+        for err in result.errors:
+            click.echo(f"    {err}")
+
+    if result.success:
+        click.echo(f"\n✅ HWPX 빌드 완료!")
+        click.echo(f"   출력 디렉토리: {output_dir}")
+    else:
+        click.echo(f"\n❌ HWPX 빌드 실패.")
+        raise SystemExit(1)
 
 
 # ── 유틸리티 ──────────────────────────────────────────────────────
