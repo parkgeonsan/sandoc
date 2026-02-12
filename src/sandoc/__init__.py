@@ -15,6 +15,9 @@ from sandoc.hwpx_engine import HwpxBuilder, StyleMirror, validate_hwpx, edit_hwp
 from sandoc.output import OutputPipeline, BuildResult, build_hwpx_from_plan, build_hwpx_from_json
 from sandoc.extract import run_extract
 from sandoc.assemble import run_assemble
+from sandoc.visualize import run_visualize
+from sandoc.review import run_review
+from sandoc.profile_register import run_profile_register
 
 __all__ = [
     # parser
@@ -50,4 +53,10 @@ __all__ = [
     "run_extract",
     # assemble
     "run_assemble",
+    # visualize
+    "run_visualize",
+    # review
+    "run_review",
+    # profile_register
+    "run_profile_register",
 ]

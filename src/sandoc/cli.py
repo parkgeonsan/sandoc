@@ -9,6 +9,9 @@ Usage:
     sandoc build [options]     사업계획서 HWPX 출력 (스타일 미러링)
     sandoc extract <project>   프로젝트 폴더에서 모든 정보 추출 (analyze+classify+profile)
     sandoc assemble <project>  작성된 섹션 마크다운을 HWPX로 조립
+    sandoc visualize <project> 초안에서 시각화 차트 생성
+    sandoc review <project>    사업계획서 자가 검토
+    sandoc profile-register    기업 프로필 등록
 """
 
 from __future__ import annotations
@@ -623,6 +626,9 @@ def assemble(
     if result.get("hwpx_path"):
         click.echo(f"\n📄 HWPX: {result['hwpx_path']}")
 
+    if result.get("html_path"):
+        click.echo(f"🌐 HTML: {result['html_path']}")
+
     if result.get("plan_json_path"):
         click.echo(f"💾 Plan JSON: {result['plan_json_path']}")
 
@@ -641,6 +647,197 @@ def assemble(
         click.echo(f"\n✅ HWPX 조립 완료!")
     else:
         click.echo(f"\n❌ HWPX 조립 실패.")
+        raise SystemExit(1)
+
+
+# ── visualize ─────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--drafts-dir", "-d", type=click.Path(exists=True, file_okay=False), default=None,
+              help="섹션 마크다운 파일 디렉토리")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="시각화 출력 디렉토리")
+def visualize(project_dir: str, drafts_dir: str | None, output: str | None) -> None:
+    """초안 섹션에서 시각화 차트를 생성합니다.
+
+    매출 추이, 사업비 구성, 시장 규모 분석 등의
+    SVG 차트를 자동 생성하여 output/visuals/ 에 저장합니다.
+
+    \b
+    예시:
+      sandoc visualize projects/2026-창업도약패키지/
+    """
+    from sandoc.visualize import run_visualize
+
+    project_path = Path(project_dir)
+    click.echo(f"📊 시각화 생성 시작: {project_path.name}")
+
+    result = run_visualize(
+        project_dir=project_path,
+        drafts_dir=Path(drafts_dir) if drafts_dir else None,
+        output_dir=Path(output) if output else None,
+    )
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📊 시각화 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+    click.echo(f"  생성된 차트: {len(result['charts'])}개")
+
+    if result["charts"]:
+        click.echo(f"\n📈 생성된 차트:")
+        for chart in result["charts"]:
+            click.echo(f"    {chart['type']:10s} — {chart['title']}")
+
+    if result.get("output_dir"):
+        click.echo(f"\n📁 출력 디렉토리: {result['output_dir']}")
+
+    if result.get("errors"):
+        click.echo(f"\n⚠️  오류:")
+        for err in result["errors"]:
+            click.echo(f"    {err}")
+
+    if result["success"]:
+        click.echo(f"\n✅ 시각화 생성 완료!")
+    else:
+        click.echo(f"\n❌ 시각화 생성 실패.")
+        raise SystemExit(1)
+
+
+# ── review ────────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--drafts-dir", "-d", type=click.Path(exists=True, file_okay=False), default=None,
+              help="섹션 마크다운 파일 디렉토리")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="리뷰 결과 저장 경로 (기본: output/review.md)")
+def review(project_dir: str, drafts_dir: str | None, output: str | None) -> None:
+    """사업계획서 자가 검토를 실행합니다.
+
+    초안 섹션을 분석하여 섹션별 점수, 누락 항목,
+    개선 사항, 종합 준비도 점수를 산출합니다.
+
+    \b
+    예시:
+      sandoc review projects/2026-창업도약패키지/
+    """
+    from sandoc.review import run_review
+
+    project_path = Path(project_dir)
+    click.echo(f"🔍 자가 검토 시작: {project_path.name}")
+
+    result = run_review(
+        project_dir=project_path,
+        drafts_dir=Path(drafts_dir) if drafts_dir else None,
+        output_path=Path(output) if output else None,
+    )
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"🔍 검토 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 완료' if result['success'] else '❌ 실패'}")
+
+    if result["success"]:
+        score = result["overall_score"]
+        if score >= 80:
+            grade = "A (우수) 🟢"
+        elif score >= 60:
+            grade = "B (보통) 🟡"
+        elif score >= 40:
+            grade = "C (미흡) 🟠"
+        else:
+            grade = "D (부족) 🔴"
+
+        click.echo(f"  종합 점수: {score:.0f}/100점 — {grade}")
+        click.echo(f"  작성 섹션: {len(result.get('present_sections', []))}/{len(result.get('present_sections', [])) + len(result.get('missing_sections', []))}")
+
+        if result.get("missing_sections"):
+            click.echo(f"\n⚠️  누락 섹션:")
+            for s in result["missing_sections"]:
+                click.echo(f"    - {s}")
+
+        if result.get("issues"):
+            click.echo(f"\n📋 주요 이슈 ({len(result['issues'])}건):")
+            for issue in result["issues"][:5]:
+                click.echo(f"    • {issue}")
+            if len(result["issues"]) > 5:
+                click.echo(f"    ... 외 {len(result['issues']) - 5}건")
+
+        click.echo(f"\n📄 상세 리뷰: {result['output_path']}")
+    else:
+        if result.get("errors"):
+            for err in result["errors"]:
+                click.echo(f"    {err}")
+        raise SystemExit(1)
+
+
+# ── profile-register ─────────────────────────────────────────
+
+@main.command("profile-register")
+@click.option("--docs", "-d", type=click.Path(exists=True), default=None,
+              help="기업 문서 경로 (폴더 또는 파일)")
+@click.option("--name", "-n", type=str, default=None,
+              help="프로필 이름 (기본: 추출된 회사명)")
+@click.option("--company", "-c", type=str, default=None,
+              help="회사명 직접 입력")
+@click.option("--ceo", type=str, default=None,
+              help="대표자명 직접 입력")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="프로필 저장 디렉토리 (기본: ./profiles/)")
+def profile_register(
+    docs: str | None,
+    name: str | None,
+    company: str | None,
+    ceo: str | None,
+    output: str | None,
+) -> None:
+    """기업 프로필을 등록합니다.
+
+    사업자등록증 PDF, 재무제표 등에서 기업 정보를 추출하거나
+    직접 입력하여 재사용 가능한 프로필을 생성합니다.
+
+    \b
+    예시:
+      sandoc profile-register -d docs/ -n "(주)스마트테크"
+      sandoc profile-register --company "(주)테스트" --ceo "홍길동"
+      sandoc profile-register -d 사업자등록증.pdf
+    """
+    from sandoc.profile_register import run_profile_register
+
+    click.echo(f"📝 기업 프로필 등록")
+
+    result = run_profile_register(
+        docs_path=Path(docs) if docs else None,
+        profile_name=name,
+        profiles_dir=Path(output) if output else None,
+        company_name=company,
+        ceo_name=ceo,
+    )
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📝 등록 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+
+    if result["success"]:
+        profile = result.get("profile", {})
+        click.echo(f"  회사명: {profile.get('company_name', 'N/A')}")
+        click.echo(f"  대표자: {profile.get('ceo_name', 'N/A')}")
+        click.echo(f"  사업자번호: {profile.get('business_registration_no', 'N/A')}")
+        click.echo(f"  추출 필드: {len(result.get('extracted_fields', []))}개")
+
+        if result.get("source_documents"):
+            click.echo(f"\n📄 소스 문서:")
+            for doc in result["source_documents"]:
+                click.echo(f"    {Path(doc).name}")
+
+        click.echo(f"\n💾 프로필 저장: {result['profile_path']}")
+    else:
+        if result.get("errors"):
+            for err in result["errors"]:
+                click.echo(f"    {err}")
         raise SystemExit(1)
 
 

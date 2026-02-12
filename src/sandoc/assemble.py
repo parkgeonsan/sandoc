@@ -5,6 +5,7 @@ output/drafts/current/ 의 *.md 파일을 읽어:
   - plan.json 형식으로 변환
   - 스타일 프로파일 적용
   - HWPX 문서 빌드
+  - HTML 출력 (차트 인라인 포함, 목차, 페이지 번호)
   - 결과 검증
 """
 
@@ -124,6 +125,20 @@ def run_assemble(
         if not result["success"]:
             result["errors"].extend(validation.get("errors", []))
 
+        # ── 8. HTML 출력 생성 ─────────────────────────────────
+        try:
+            visuals_dir = project_dir / "output" / "visuals"
+            html = generate_html(
+                plan,
+                visuals_dir=visuals_dir if visuals_dir.is_dir() else None,
+            )
+            html_path = output_dir / f"{plan.company_name or 'sandoc'}_사업계획서.html"
+            html_path.write_text(html, encoding="utf-8")
+            result["html_path"] = str(html_path)
+            logger.info("HTML 출력 생성: %s", html_path)
+        except Exception as html_err:
+            logger.warning("HTML 생성 오류 (무시): %s", html_err)
+
         logger.info(
             "HWPX 조립 완료: %s (%d 섹션, %d자)",
             output_path, result["section_count"], result["total_chars"],
@@ -198,3 +213,301 @@ def _infer_section_key(stem: str, index: int) -> str:
 
     # 알려진 키가 아니면 stem 그대로 사용
     return key
+
+
+# ── HTML 출력 ─────────────────────────────────────────────────
+
+def _md_to_html_body(text: str) -> str:
+    """간단한 마크다운→HTML 변환 (외부 의존성 없음)."""
+    lines = text.split("\n")
+    html_lines: list[str] = []
+    in_table = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # 빈 줄
+        if not stripped:
+            if in_table:
+                html_lines.append("</table>")
+                in_table = False
+            html_lines.append("")
+            continue
+
+        # 표 구분줄 (|---|) 건너뜀
+        if re.match(r"^\s*\|[\s\-:|]+\|\s*$", stripped):
+            continue
+
+        # 표 행
+        if stripped.startswith("|") and stripped.endswith("|"):
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]
+            if not in_table:
+                html_lines.append('<table class="data-table">')
+                in_table = True
+                # 첫 행은 헤더
+                html_lines.append("  <tr>" + "".join(f"<th>{c}</th>" for c in cells) + "</tr>")
+            else:
+                html_lines.append("  <tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+            continue
+
+        if in_table:
+            html_lines.append("</table>")
+            in_table = False
+
+        # 헤딩
+        m = re.match(r"^(#{1,4})\s+(.+)$", stripped)
+        if m:
+            level = len(m.group(1))
+            text_content = m.group(2)
+            anchor = re.sub(r"\s+", "-", text_content)
+            html_lines.append(f'<h{level} id="{anchor}">{text_content}</h{level}>')
+            continue
+
+        # 볼드
+        processed = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", stripped)
+        # 불릿
+        if stripped.startswith("◦") or stripped.startswith("○"):
+            html_lines.append(f'<p class="bullet">{processed}</p>')
+        elif stripped.startswith("  -"):
+            html_lines.append(f'<p class="indent">{processed[2:].strip()}</p>')
+        else:
+            html_lines.append(f"<p>{processed}</p>")
+
+    if in_table:
+        html_lines.append("</table>")
+
+    return "\n".join(html_lines)
+
+
+def generate_html(
+    plan: GeneratedPlan,
+    visuals_dir: Path | None = None,
+) -> str:
+    """사업계획서를 HTML로 생성합니다 (차트 인라인, 목차, 인쇄 최적화)."""
+    # 차트 SVG 로드
+    chart_svgs: dict[str, str] = {}
+    if visuals_dir and visuals_dir.is_dir():
+        for svg_path in visuals_dir.glob("*.svg"):
+            chart_svgs[svg_path.stem] = svg_path.read_text(encoding="utf-8")
+
+    # 목차 생성
+    toc_items = ""
+    for i, section in enumerate(plan.sections):
+        anchor = re.sub(r"\s+", "-", section.title)
+        toc_items += f'  <li><a href="#{anchor}">{i + 1}. {section.title}</a></li>\n'
+
+    # 섹션 HTML 생성
+    sections_html = ""
+    for i, section in enumerate(plan.sections):
+        section_body = _md_to_html_body(section.content)
+        anchor = re.sub(r"\s+", "-", section.title)
+
+        # 섹션에 해당하는 차트 삽입
+        chart_insert = ""
+        key = section.section_key
+        if key in ("growth_strategy", "financial_plan", "funding_plan") and "budget_pie_chart" in chart_svgs:
+            chart_insert += f'<div class="chart-container">\n{chart_svgs.pop("budget_pie_chart")}\n</div>\n'
+        if key in ("market_analysis", "growth_strategy") and "revenue_bar_chart" in chart_svgs:
+            chart_insert += f'<div class="chart-container">\n{chart_svgs.pop("revenue_bar_chart")}\n</div>\n'
+        if key in ("solution", "market_analysis") and "market_funnel_chart" in chart_svgs:
+            chart_insert += f'<div class="chart-container">\n{chart_svgs.pop("market_funnel_chart")}\n</div>\n'
+        if key == "team" and "org_chart" in chart_svgs:
+            chart_insert += f'<div class="chart-container">\n{chart_svgs.pop("org_chart")}\n</div>\n'
+        if key in ("market_analysis",) and "timeline_chart" in chart_svgs:
+            chart_insert += f'<div class="chart-container">\n{chart_svgs.pop("timeline_chart")}\n</div>\n'
+
+        sections_html += f'''
+<section class="page-break" id="{anchor}">
+  <h2>{i + 1}. {section.title}</h2>
+  {section_body}
+  {chart_insert}
+</section>
+'''
+
+    # 나머지 차트 삽입 (부록)
+    remaining_charts = ""
+    if chart_svgs:
+        remaining_charts = '<section class="page-break"><h2>참고 자료 (시각화)</h2>\n'
+        for name, svg in chart_svgs.items():
+            remaining_charts += f'<div class="chart-container">\n{svg}\n</div>\n'
+        remaining_charts += "</section>\n"
+
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{plan.title or '사업계획서'}</title>
+  <style>
+    @page {{
+      size: A4;
+      margin: 20mm 15mm 25mm 15mm;
+      @bottom-center {{
+        content: counter(page) " / " counter(pages);
+        font-size: 9pt;
+        color: #999;
+      }}
+    }}
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{
+      font-family: 'Pretendard', 'Malgun Gothic', '맑은 고딕', sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.7;
+      color: #1a1a1a;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 15mm;
+      background: #fff;
+    }}
+    .cover {{
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 3px double #1E40AF;
+      margin-bottom: 40px;
+    }}
+    .cover h1 {{
+      font-size: 24pt;
+      color: #1E40AF;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }}
+    .cover .company {{
+      font-size: 14pt;
+      color: #374151;
+      margin-bottom: 8px;
+    }}
+    .cover .date {{
+      font-size: 10pt;
+      color: #9CA3AF;
+    }}
+    .toc {{
+      background: #F9FAFB;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      padding: 24px 32px;
+      margin: 30px 0;
+    }}
+    .toc h3 {{
+      font-size: 13pt;
+      color: #1E40AF;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #E5E7EB;
+      padding-bottom: 8px;
+    }}
+    .toc ol {{
+      list-style: none;
+      counter-reset: toc-counter;
+      padding: 0;
+    }}
+    .toc li {{
+      counter-increment: toc-counter;
+      padding: 4px 0;
+      font-size: 10.5pt;
+    }}
+    .toc li a {{
+      color: #374151;
+      text-decoration: none;
+      border-bottom: 1px dotted #D1D5DB;
+    }}
+    .toc li a:hover {{ color: #1E40AF; }}
+    h2 {{
+      font-size: 14pt;
+      color: #1E40AF;
+      border-bottom: 2px solid #1E40AF;
+      padding-bottom: 6px;
+      margin: 32px 0 16px;
+    }}
+    h3 {{
+      font-size: 12pt;
+      color: #374151;
+      margin: 20px 0 10px;
+    }}
+    h4 {{
+      font-size: 11pt;
+      color: #4B5563;
+      margin: 16px 0 8px;
+    }}
+    p {{ margin: 6px 0; }}
+    p.bullet {{
+      padding-left: 16px;
+      text-indent: -16px;
+    }}
+    p.indent {{
+      padding-left: 24px;
+      color: #374151;
+    }}
+    .data-table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 9.5pt;
+    }}
+    .data-table th, .data-table td {{
+      border: 1px solid #D1D5DB;
+      padding: 6px 10px;
+      text-align: left;
+    }}
+    .data-table th {{
+      background: #EFF6FF;
+      color: #1E40AF;
+      font-weight: 600;
+    }}
+    .data-table tr:nth-child(even) {{
+      background: #F9FAFB;
+    }}
+    .chart-container {{
+      text-align: center;
+      margin: 24px auto;
+      max-width: 100%;
+    }}
+    .chart-container svg {{
+      max-width: 100%;
+      height: auto;
+    }}
+    .page-break {{
+      page-break-before: auto;
+      page-break-inside: avoid;
+    }}
+    footer {{
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid #E5E7EB;
+      text-align: center;
+      font-size: 9pt;
+      color: #9CA3AF;
+    }}
+    @media print {{
+      body {{ padding: 0; }}
+      .page-break {{ page-break-before: always; }}
+      .page-break:first-of-type {{ page-break-before: avoid; }}
+      footer {{ position: fixed; bottom: 10mm; left: 0; right: 0; }}
+    }}
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>{plan.title or '사업계획서'}</h1>
+  <p class="company">{plan.company_name}</p>
+  <p class="date">Generated by sandoc</p>
+</div>
+
+<nav class="toc">
+  <h3>목 차</h3>
+  <ol>
+{toc_items}
+  </ol>
+</nav>
+
+{sections_html}
+
+{remaining_charts}
+
+<footer>
+  <p>{plan.company_name} — {plan.title or '사업계획서'} | sandoc 자동생성</p>
+</footer>
+
+</body>
+</html>"""
+
+    return html
