@@ -1,0 +1,234 @@
+{
+  "company_name": "(주)메디랩AI",
+  "ceo_name": "박지현",
+  "business_registration_no": "215-87-01234",
+  "business_type": "법인사업자",
+  "ceo_type": "창업자",
+  "establishment_date": "2022-03-10",
+  "employee_count": 8,
+  "address": "서울특별시 서초구 강남대로 301, 8층",
+
+  "item_name": "AI 기반 의료영상 자동 판독 보조 시스템",
+  "item_category": "디지털 헬스케어 / 의료AI",
+  "support_field": "정보통신",
+  "tech_field": "인공지능(AI)",
+  "item_summary": "딥러닝 기반 흉부 X-ray 및 CT 영상에서 이상 소견을 자동 검출하고, 의사의 판독을 보조하는 AI 시스템으로, 판독 정확도 96% 이상을 달성하였습니다.",
+  "product_description": "본 시스템은 CNN 기반 딥러닝 모델을 활용하여 흉부 X-ray에서 폐결절, 기흉, 흉수 등 12종의 이상 소견을 자동 검출합니다. 기존 수작업 판독 대비 판독 시간을 70% 단축하고, 초기 병변 검출률을 35% 향상시킵니다. 클라우드 기반 SaaS로 제공되어 별도 장비 설치 없이 웹브라우저에서 즉시 사용 가능합니다.",
+
+  "problem_background": "국내 영상의학 전문의 수는 약 3,500명으로 매년 증가하는 의료영상 판독 수요(연간 2억건 이상)를 감당하기 어려운 실정입니다. 특히 지방 중소병원의 경우 영상의학 전문의 부족이 심각하여 판독 지연이 환자 안전 문제로 이어지고 있습니다.",
+  "problem_statement": "기존 의료영상 AI 솔루션은 고가(연간 1억원 이상)이며 온프레미스 설치가 필수적이어서 중소병원 도입률이 3% 미만에 그치고 있습니다. 또한 한국인 체형에 최적화된 학습 데이터 부족으로 판독 정확도가 해외 솔루션 대비 낮은 문제가 있습니다.",
+  "development_motivation": "대표자는 서울대 의공학 석사 출신으로 대학병원 영상의학과에서 3년간 근무하며 판독 지연으로 인한 진단 지연 사례를 다수 경험하였고, AI 기술로 이를 해결하고자 창업하게 되었습니다.",
+  "progress_to_date": "2022년 프로토타입 개발 → 2023년 서울대병원 IRB 승인 및 임상 데이터 10만건 확보 → 2024년 식약처 혁신의료기기 소프트웨어 인증 획득 → 2024년 12개 병원 파일럿 도입 완료.",
+
+  "target_market": "국내 중소병원(300병상 미만) 약 2,800개소 및 건강검진센터 약 1,200개소",
+  "target_customer": "중소규모 병원(100~300병상), 건강검진센터, 지역 의원",
+  "competitive_advantage": "① 클라우드 SaaS 방식으로 도입비용 80% 절감 (월 200만원) ② 한국인 체형 특화 AI 모델 (정확도 96.3%) ③ 식약처 인증 완료 (경쟁사 대비 1년 앞서) ④ PACS 연동 API 제공으로 설치 1시간 완료",
+  "key_features": "12종 흉부 이상소견 자동 검출, PACS 실시간 연동, 판독 우선순위 자동 분류(Triage), 판독 리포트 자동 생성, 대시보드 통계 분석",
+  "competitor_analysis": "A사(대기업 계열): 온프레미스 전용, 연간 1.5억원, 대형병원 타겟 / B사(스타트업): 흉부 CT만 지원, 식약처 미인증 / C사(해외): 한국어 미지원, 한국인 데이터 학습 부족",
+
+  "revenue_records": [
+    {
+      "target_market": "중소병원",
+      "product_service": "AI 판독 보조 SaaS",
+      "entry_date": "2024-03",
+      "volume": "12건(병원)",
+      "price": "월 200만원",
+      "revenue": "2.88억원"
+    },
+    {
+      "target_market": "건강검진센터",
+      "product_service": "검진 AI 패키지",
+      "entry_date": "2024-07",
+      "volume": "5건(센터)",
+      "price": "월 150만원",
+      "revenue": "0.9억원"
+    }
+  ],
+
+  "business_model": "SaaS 월정액 구독 모델 (병원 규모별 차등 과금: 소형 150만원, 중형 200만원, 대형 350만원) + 맞춤형 AI 모델 개발 컨설팅",
+  "growth_strategy": "2025년 국내 50개 병원 추가 확보 → 2026년 동남아(베트남, 태국) 수출 → 2027년 CT 영상 분석 모듈 추가 → 2028년 매출 100억원 달성",
+  "marketing_plan": "① 대한영상의학회 학술대회 발표 및 전시 ② 지역 의사회 세미나 개최 ③ 기존 고객 레퍼런스 마케팅 ④ 건강보험심사평가원 시범사업 참여",
+
+  "projected_revenues": [
+    {
+      "target_market": "중소병원",
+      "product_service": "AI 판독 SaaS",
+      "launch_date": "2025-04",
+      "volume": "50건(병원)",
+      "price": "월 200만원",
+      "projected_sales": "12억원"
+    },
+    {
+      "target_market": "건강검진센터",
+      "product_service": "검진 AI 패키지",
+      "launch_date": "2025-06",
+      "volume": "20건(센터)",
+      "price": "월 150만원",
+      "projected_sales": "3.6억원"
+    },
+    {
+      "target_market": "해외(베트남)",
+      "product_service": "수출형 SaaS",
+      "launch_date": "2025-10",
+      "volume": "10건(병원)",
+      "price": "월 100만원",
+      "projected_sales": "1.2억원"
+    }
+  ],
+
+  "milestones": [
+    {
+      "task": "AI 모델 v2.0 고도화",
+      "period": "2025.04~06",
+      "details": "CT 영상 분석 모듈 추가 개발, 검출 대상 18종으로 확대"
+    },
+    {
+      "task": "식약처 추가 인증",
+      "period": "2025.06~09",
+      "details": "CT 분석 모듈 식약처 혁신의료기기 인증 획득"
+    },
+    {
+      "task": "베트남 현지화",
+      "period": "2025.07~10",
+      "details": "베트남 파트너사 제휴, 현지 임상 데이터 확보 및 모델 최적화"
+    },
+    {
+      "task": "영업/마케팅 강화",
+      "period": "2025.04~2026.02",
+      "details": "학회 발표 3회, 세미나 10회, 레퍼런스 사례집 제작"
+    }
+  ],
+  "mid_term_roadmap": "2025: 국내 시장 점유율 5% 달성 → 2026: 동남아 수출 시작, CT 분석 상용화 → 2027: 일본 시장 진출, 유방촬영 AI 추가 → 2028: 매출 100억원, 시리즈 B 투자유치",
+  "short_term_roadmap": "AI v2.0 개발(CT 모듈) → 식약처 추가 인증 → 해외 현지화 → 50개 병원 신규 확보",
+  "deliverables": "AI 판독 모델 v2.0 (CT 지원), 식약처 인증서 1건, 베트남 현지화 보고서, 50개 신규 병원 계약서",
+
+  "funding_amount": 200000000,
+  "self_funding_cash": 35000000,
+  "self_funding_inkind": 50000000,
+  "budget_items": [
+    {
+      "category": "인건비",
+      "description": "AI 개발인력 2인, 임상데이터 분석 1인 (10개월)",
+      "amount": 75000000,
+      "source": "정부지원"
+    },
+    {
+      "category": "재료비",
+      "description": "GPU 서버 클라우드 사용료, 의료영상 데이터 구입",
+      "amount": 40000000,
+      "source": "정부지원"
+    },
+    {
+      "category": "외주용역비",
+      "description": "식약처 인증 컨설팅, 임상시험 위탁",
+      "amount": 45000000,
+      "source": "정부지원"
+    },
+    {
+      "category": "기자재구입비",
+      "description": "AI 학습용 GPU 서버 1대, 테스트 장비",
+      "amount": 25000000,
+      "source": "정부지원"
+    },
+    {
+      "category": "마케팅비",
+      "description": "학회 전시 참가, 홍보 영상 제작, 세미나 운영",
+      "amount": 15000000,
+      "source": "정부지원"
+    },
+    {
+      "category": "자기부담(현금)",
+      "description": "운영비, 출장비 등 기타 경비",
+      "amount": 35000000,
+      "source": "자기부담(현금)"
+    },
+    {
+      "category": "자기부담(현물)",
+      "description": "기보유 GPU 서버 2대, 사무공간, 의료영상 데이터셋",
+      "amount": 50000000,
+      "source": "자기부담(현물)"
+    }
+  ],
+  "future_funding_plan": "시리즈 A 투자유치 (2025 하반기, 목표 50억원) 및 정보통신산업진흥원 AI 바우처 사업 참여",
+  "success_return_type": false,
+
+  "ceo_background": "서울대 의공학 석사, 서울대병원 영상의학과 연구원 3년, 의료영상 AI 관련 논문 5편(SCI) 게재, 의료 AI 특허 2건 보유, 전 네이버 AI Lab 연구원 2년",
+  "team_members": [
+    {
+      "name": "김민수",
+      "position": "CTO",
+      "role": "AI/ML 모델 아키텍처 설계 및 개발",
+      "experience": "KAIST 인공지능학과 박사, 의료영상 AI 논문 10편, TensorFlow/PyTorch 전문",
+      "employment_type": "기고용"
+    },
+    {
+      "name": "이수진",
+      "position": "임상파트장",
+      "role": "임상 데이터 분석 및 식약처 인증 관리",
+      "experience": "영상의학과 전문의, 대학병원 10년 근무, 의료기기 인허가 전문",
+      "employment_type": "기고용"
+    },
+    {
+      "name": "정해준",
+      "position": "풀스택 개발자",
+      "role": "웹 플랫폼 및 PACS 연동 개발",
+      "experience": "카카오 백엔드 개발 4년, AWS 아키텍처 설계 전문",
+      "employment_type": "기고용"
+    },
+    {
+      "name": "채은비",
+      "position": "데이터 엔지니어",
+      "role": "의료영상 데이터 전처리 및 파이프라인 구축",
+      "experience": "빅데이터 처리 5년, 의료데이터 표준화(DICOM, HL7) 전문",
+      "employment_type": "채용예정"
+    }
+  ],
+
+  "infrastructure": [
+    {
+      "infra_type": "사무실",
+      "description": "본사 사무공간 (개발실, 회의실 포함)",
+      "location": "서울 서초구"
+    },
+    {
+      "infra_type": "GPU 서버",
+      "description": "NVIDIA A100 GPU 서버 2대 (AI 학습용)",
+      "location": "AWS 서울 리전 + 자체 서버실"
+    },
+    {
+      "infra_type": "임상 데이터",
+      "description": "서울대병원 IRB 승인 흉부 X-ray 10만건 데이터셋",
+      "location": "AWS S3 (암호화 저장)"
+    }
+  ],
+
+  "ip_portfolio": [
+    {
+      "ip_type": "특허",
+      "name": "딥러닝 기반 흉부 X-ray 이상 소견 자동 검출 방법",
+      "registration_no": "10-2567890",
+      "registration_date": "2023-11-15"
+    },
+    {
+      "ip_type": "특허",
+      "name": "의료영상 판독 우선순위 자동 분류 시스템",
+      "registration_no": "10-2567891",
+      "registration_date": "2024-03-20"
+    },
+    {
+      "ip_type": "소프트웨어등록",
+      "name": "MediLab AI 판독 보조 시스템 v1.0",
+      "registration_no": "C-2024-012345",
+      "registration_date": "2024-06-10"
+    }
+  ],
+
+  "investment_amount": 0,
+  "investment_date": "",
+  "investor_name": "",
+
+  "additional_info": {
+    "certifications": ["식약처 혁신의료기기 소프트웨어 인증 (2024.09)"],
+    "awards": ["2024 대한의료AI학회 우수논문상", "2023 서울창업허브 데모데이 대상"]
+  }
+}

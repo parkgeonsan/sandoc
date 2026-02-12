@@ -7,13 +7,16 @@ test_e2e.py — 사업계획서 생성 파이프라인 End-to-End 테스트
   3. (옵션) PDF 공고문 파싱 → 분석
   4. PlanGenerator로 프롬프트 빌드
   5. 콘텐츠 생성 (fill 모드)
-  6. 결과 저장 및 검증
+  6. HWPX 빌드 및 검증
+  7. 결과 저장 및 검증
 """
 
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import pytest
 
@@ -35,15 +38,28 @@ from sandoc.generator import (
     SECTION_DEFS,
     PROMPTS_DIR,
 )
+from sandoc.hwpx_engine import (
+    StyleMirror,
+    HwpxBuilder,
+    validate_hwpx,
+)
+from sandoc.output import (
+    OutputPipeline,
+    BuildResult,
+    build_hwpx_from_plan,
+    build_hwpx_from_json,
+)
 
 # ── 테스트 데이터 경로 ─────────────────────────────────────────────
 
 DATA_DIR = Path(__file__).parent / "v1-data"
 OUTPUT_DIR = DATA_DIR / "output"
+DEMO_DIR = Path(__file__).parent.parent / "demo"
 
 HWP_FILE = DATA_DIR / "[별첨 1] 2025년도 창업도약패키지(일반형) 사업계획서 양식.hwp"
 PDF_FILE = DATA_DIR / "[공고문] 2025년도 창업도약패키지(일반형) 창업기업 모집 수정공고.pdf"
 STYLE_FILE = DATA_DIR / "analysis" / "style-profile.json"
+DEMO_COMPANY_JSON = DEMO_DIR / "sample_company.json"
 
 
 # ── CompanyInfo 스키마 테스트 ──────────────────────────────────────
@@ -441,6 +457,540 @@ class TestE2EPipeline:
 
         assert plan.company_name == "(주)스마트팜테크"
         assert len(plan.sections) == 9
+
+
+# ── E2E 전체 파이프라인 (CompanyInfo → Generate → Build → HWPX) ──
+
+class TestE2EFullPipeline:
+    """
+    Phase 6 — 전체 E2E 데모 파이프라인 테스트.
+
+    CompanyInfo JSON → PlanGenerator → OutputPipeline → HWPX → 검증
+    """
+
+    def test_sample_company_full_pipeline(self, tmp_path):
+        """내장 샘플 회사: CompanyInfo → Generate → Build → HWPX 검증."""
+        company = create_sample_company()
+        output_dir = tmp_path / "e2e_sample"
+
+        # 파이프라인 실행
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=output_dir,
+        )
+        result = pipeline.run()
+
+        # 빌드 성공
+        assert result.success is True
+        assert result.section_count == 9
+        assert result.total_chars > 1000
+
+        # HWPX 파일 존재 및 유효
+        hwpx_path = Path(result.hwpx_path)
+        assert hwpx_path.exists()
+        assert hwpx_path.suffix == ".hwpx"
+        assert zipfile.is_zipfile(hwpx_path)
+
+        # HWPX 구조 검증
+        v = validate_hwpx(hwpx_path)
+        assert v["valid"] is True
+        assert v["has_mimetype"] is True
+        assert v["has_content_hpf"] is True
+        assert v["has_header"] is True
+        assert v["has_sections"] is True
+        assert v["section_count"] >= 1
+        assert v["file_count"] >= 5
+        assert len(v["errors"]) == 0
+
+        # plan.json 존재 및 구조
+        plan_path = Path(result.plan_json_path)
+        assert plan_path.exists()
+        plan_data = json.loads(plan_path.read_text(encoding="utf-8"))
+        assert plan_data["company_name"] == "(주)스마트팜테크"
+        assert len(plan_data["sections"]) == 9
+        assert plan_data["total_word_count"] > 0
+
+        # 섹션 파일 9개 존재
+        sections_dir = Path(result.sections_dir)
+        assert sections_dir.exists()
+        md_files = sorted(sections_dir.glob("*.md"))
+        assert len(md_files) == 9
+
+        # 프롬프트 파일 9개 존재
+        prompts_dir = Path(result.prompts_dir)
+        assert prompts_dir.exists()
+        prompt_files = list(prompts_dir.glob("*.md"))
+        assert len(prompt_files) == 9
+
+        # company_info.json 존재
+        assert (output_dir / "company_info.json").exists()
+
+    @pytest.mark.skipif(
+        not DEMO_COMPANY_JSON.exists(),
+        reason="demo/sample_company.json 없음"
+    )
+    def test_custom_company_json_full_pipeline(self, tmp_path):
+        """외부 JSON 파일에서 회사 정보 로드 → 전체 파이프라인 → HWPX 검증."""
+        # 1. JSON 파일에서 CompanyInfo 로드
+        company = CompanyInfo.from_file(DEMO_COMPANY_JSON)
+        assert company.company_name == "(주)메디랩AI"
+        assert company.item_name == "AI 기반 의료영상 자동 판독 보조 시스템"
+        assert company.total_budget > 0
+
+        # 2. 파이프라인 실행
+        output_dir = tmp_path / "e2e_custom"
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=output_dir,
+        )
+        result = pipeline.run()
+
+        # 3. 빌드 성공
+        assert result.success is True
+        assert result.section_count == 9
+        assert result.total_chars > 1000
+
+        # 4. HWPX 검증
+        v = validate_hwpx(result.hwpx_path)
+        assert v["valid"] is True
+        assert v["file_count"] >= 5
+
+        # 5. HWPX 내부 XML에 회사 정보 포함 확인
+        with zipfile.ZipFile(result.hwpx_path) as zf:
+            section_xml = zf.read("Contents/section0.xml").decode("utf-8")
+            assert "(주)메디랩AI" in section_xml
+            assert "의료영상" in section_xml
+
+    def test_hwpx_xml_structure_validation(self, tmp_path):
+        """HWPX 내부 XML 구조 상세 검증."""
+        company = create_sample_company()
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "xml_check",
+        )
+        result = pipeline.run()
+        assert result.success is True
+
+        with zipfile.ZipFile(result.hwpx_path) as zf:
+            # 1. mimetype 확인
+            mt = zf.read("mimetype").decode("utf-8").strip()
+            assert mt == "application/hwp+zip"
+
+            # 2. manifest.xml 유효한 XML
+            manifest_xml = zf.read("META-INF/manifest.xml").decode("utf-8")
+            manifest_root = ET.fromstring(manifest_xml)
+            assert "manifest" in manifest_root.tag
+
+            # 3. content.hpf 유효한 XML
+            hpf_xml = zf.read("Contents/content.hpf").decode("utf-8")
+            hpf_root = ET.fromstring(hpf_xml)
+            # ha:HWPDocumentPackage 또는 HWPDocumentPackage
+            assert "HWPDocumentPackage" in hpf_root.tag
+
+            # 4. header.xml 유효한 XML (폰트, 문자모양, 문단모양)
+            header_xml = zf.read("Contents/header.xml").decode("utf-8")
+            header_root = ET.fromstring(header_xml)
+            assert "Head" in header_root.tag
+
+            # 5. section0.xml 유효한 XML (본문 콘텐츠)
+            section_xml = zf.read("Contents/section0.xml").decode("utf-8")
+            section_root = ET.fromstring(section_xml)
+            assert "Section" in section_root.tag
+
+    def test_section_content_not_empty(self, tmp_path):
+        """모든 섹션 콘텐츠가 비어있지 않음을 확인."""
+        company = create_sample_company()
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+
+        for section in plan.sections:
+            assert len(section.content.strip()) > 50, (
+                f"섹션 '{section.title}' 콘텐츠가 너무 짧음: {len(section.content)}자"
+            )
+            assert section.word_count > 0
+            assert section.section_key != ""
+            assert section.title != ""
+
+    def test_section_keys_match_definitions(self, tmp_path):
+        """생성된 섹션 키가 SECTION_DEFS와 일치."""
+        company = create_sample_company()
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+
+        expected_keys = [sd["key"] for sd in SECTION_DEFS]
+        actual_keys = [s.section_key for s in plan.sections]
+        assert actual_keys == expected_keys
+
+    def test_style_profile_applied(self, tmp_path):
+        """스타일 프로파일이 HWPX에 적용되는지 확인."""
+        company = create_sample_company()
+
+        # 커스텀 스타일 데이터
+        custom_style = {
+            "paperSize": {"width": "210.0mm", "height": "297.0mm"},
+            "margins": {"top": "15.0mm", "bottom": "20.0mm", "left": "25.0mm", "right": "25.0mm"},
+            "characterStyles": {
+                "bodyText": {"font": "나눔고딕", "size": "11pt"},
+                "sectionTitle": {"font": "나눔고딕", "size": "16pt", "bold": True},
+            },
+            "paragraphStyles": {
+                "default": {"alignment": "justify", "lineSpacing": 180},
+            },
+        }
+
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "styled",
+            style_profile_data=custom_style,
+        )
+        result = pipeline.run()
+        assert result.success is True
+
+        # header.xml에서 스타일 정보 확인
+        with zipfile.ZipFile(result.hwpx_path) as zf:
+            header_xml = zf.read("Contents/header.xml").decode("utf-8")
+            # 폰트 크기가 반영됨 (11pt = Height 1100)
+            assert "1100" in header_xml  # bodyText 11pt
+            # 줄간격 반영됨
+            assert "180" in header_xml  # lineSpacing 180
+
+    def test_plan_json_roundtrip_build(self, tmp_path):
+        """plan.json 저장 → 로드 → HWPX 빌드 왕복 테스트."""
+        company = create_sample_company()
+
+        # 1차: 생성 + 저장
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+        plan_json = tmp_path / "plan.json"
+        plan_json.write_text(plan.to_json(), encoding="utf-8")
+
+        # 2차: plan.json에서 로드 후 HWPX 빌드
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "roundtrip",
+            plan_json_path=plan_json,
+        )
+        result = pipeline.run()
+        assert result.success is True
+        assert result.section_count == 9
+
+        # HWPX 검증
+        v = validate_hwpx(result.hwpx_path)
+        assert v["valid"] is True
+
+    def test_hwpx_file_is_valid_zip(self, tmp_path):
+        """HWPX 파일이 유효한 ZIP이며 올바른 엔트리 포함."""
+        company = create_sample_company()
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "zip_check",
+        )
+        result = pipeline.run()
+        assert result.success is True
+
+        hwpx_path = Path(result.hwpx_path)
+        assert zipfile.is_zipfile(hwpx_path)
+
+        with zipfile.ZipFile(hwpx_path) as zf:
+            names = zf.namelist()
+            # 필수 파일 존재
+            required = [
+                "mimetype",
+                "META-INF/manifest.xml",
+                "Contents/content.hpf",
+                "Contents/header.xml",
+                "Contents/section0.xml",
+            ]
+            for req in required:
+                assert req in names, f"필수 파일 없음: {req}"
+
+            # 모든 파일이 읽을 수 있는지 (손상 없음)
+            for name in names:
+                data = zf.read(name)
+                assert data is not None
+                assert len(data) > 0, f"빈 파일: {name}"
+
+    def test_hwpx_contains_all_section_titles(self, tmp_path):
+        """HWPX에 모든 섹션 제목이 포함되어 있는지 확인."""
+        company = create_sample_company()
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "title_check",
+            plan=plan,
+        )
+        result = pipeline.run()
+        assert result.success is True
+
+        with zipfile.ZipFile(result.hwpx_path) as zf:
+            section_xml = zf.read("Contents/section0.xml").decode("utf-8")
+            for section in plan.sections:
+                assert section.title in section_xml, (
+                    f"섹션 제목 '{section.title}' 이 HWPX에 없음"
+                )
+
+    def test_company_info_data_in_hwpx(self, tmp_path):
+        """HWPX에 회사 정보 핵심 데이터가 포함되어 있는지 확인."""
+        company = create_sample_company()
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "data_check",
+        )
+        result = pipeline.run()
+        assert result.success is True
+
+        with zipfile.ZipFile(result.hwpx_path) as zf:
+            xml = zf.read("Contents/section0.xml").decode("utf-8")
+            # 핵심 회사 정보
+            assert company.company_name in xml
+            assert company.ceo_name in xml
+            assert company.item_name in xml
+            # 재무 정보
+            assert f"{company.total_budget:,}" in xml
+
+    def test_multiple_companies_independent(self, tmp_path):
+        """서로 다른 회사 정보로 독립적 빌드."""
+        # 회사 1: 내장 샘플
+        company1 = create_sample_company()
+        out1 = tmp_path / "company1"
+        p1 = OutputPipeline(company_info=company1, output_dir=out1)
+        r1 = p1.run()
+        assert r1.success is True
+
+        # 회사 2: 수정된 정보
+        company2 = create_sample_company()
+        company2.company_name = "(주)테스트기업"
+        company2.ceo_name = "홍길동"
+        company2.item_name = "블록체인 기반 물류 추적 시스템"
+        out2 = tmp_path / "company2"
+        p2 = OutputPipeline(company_info=company2, output_dir=out2)
+        r2 = p2.run()
+        assert r2.success is True
+
+        # 독립적 결과 확인
+        with zipfile.ZipFile(r1.hwpx_path) as zf:
+            xml1 = zf.read("Contents/section0.xml").decode("utf-8")
+        with zipfile.ZipFile(r2.hwpx_path) as zf:
+            xml2 = zf.read("Contents/section0.xml").decode("utf-8")
+
+        assert "(주)스마트팜테크" in xml1
+        assert "(주)테스트기업" in xml2
+        assert "(주)테스트기업" not in xml1
+        assert "(주)스마트팜테크" not in xml2
+
+    def test_evaluation_categories_present(self, tmp_path):
+        """평가 카테고리 4개(문제인식, 실현가능성, 성장전략, 팀구성)가 계획에 포함."""
+        company = create_sample_company()
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+
+        categories = {s.evaluation_category for s in plan.sections if s.evaluation_category}
+        assert "문제인식" in categories
+        assert "실현가능성" in categories
+        assert "성장전략" in categories
+        assert "팀구성" in categories
+
+    def test_build_result_statistics(self, tmp_path):
+        """BuildResult 통계가 정확한지 확인."""
+        company = create_sample_company()
+        pipeline = OutputPipeline(
+            company_info=company,
+            output_dir=tmp_path / "stats",
+        )
+        result = pipeline.run()
+
+        assert result.success is True
+        assert result.section_count == 9
+        assert result.total_chars > 0
+        assert result.hwpx_path != ""
+        assert result.plan_json_path != ""
+        assert result.sections_dir != ""
+        assert result.prompts_dir != ""
+        assert result.validation["valid"] is True
+        assert len(result.errors) == 0
+
+
+# ── CLI 명령 E2E 테스트 ──────────────────────────────────────────
+
+class TestCLICommands:
+    """CLI 명령어 E2E 테스트."""
+
+    def test_generate_sample_cli(self, tmp_path):
+        """sandoc generate --sample CLI 실행."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        output_dir = str(tmp_path / "cli_gen")
+        result = runner.invoke(main, ["generate", "--sample", "-o", output_dir])
+
+        assert result.exit_code == 0
+        assert "생성 완료" in result.output
+        assert Path(output_dir).exists()
+
+        # plan.json 존재
+        plan_json = Path(output_dir) / "plan.json"
+        assert plan_json.exists()
+
+        # 섹션 파일 존재
+        sections = list((Path(output_dir) / "sections").glob("*.md"))
+        assert len(sections) == 9
+
+    def test_build_sample_cli(self, tmp_path):
+        """sandoc build --sample CLI 실행."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        output_dir = str(tmp_path / "cli_build")
+        result = runner.invoke(main, ["build", "--sample", "-o", output_dir])
+
+        assert result.exit_code == 0
+        assert "빌드 완료" in result.output
+
+        # HWPX 파일 존재
+        hwpx_files = list(Path(output_dir).glob("*.hwpx"))
+        assert len(hwpx_files) >= 1
+
+    @pytest.mark.skipif(
+        not DEMO_COMPANY_JSON.exists(),
+        reason="demo/sample_company.json 없음"
+    )
+    def test_build_with_custom_json_cli(self, tmp_path):
+        """sandoc build --company-info demo/sample_company.json CLI 실행."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        output_dir = str(tmp_path / "cli_custom")
+        result = runner.invoke(main, [
+            "build",
+            "--company-info", str(DEMO_COMPANY_JSON),
+            "-o", output_dir,
+        ])
+
+        assert result.exit_code == 0
+        assert "빌드 완료" in result.output
+
+        # HWPX 파일 검증
+        hwpx_files = list(Path(output_dir).glob("*.hwpx"))
+        assert len(hwpx_files) >= 1
+        v = validate_hwpx(hwpx_files[0])
+        assert v["valid"] is True
+
+    def test_generate_prompts_only_cli(self, tmp_path):
+        """sandoc generate --sample --prompts-only CLI 실행."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        output_dir = str(tmp_path / "prompts_only")
+        result = runner.invoke(main, [
+            "generate", "--sample", "--prompts-only", "-o", output_dir,
+        ])
+
+        assert result.exit_code == 0
+        assert "프롬프트 생성 완료" in result.output
+
+        # 프롬프트 파일만 존재
+        prompts = list((Path(output_dir) / "prompts").glob("*.md"))
+        assert len(prompts) == 9
+
+    def test_generate_no_args_error(self):
+        """인자 없이 generate 실행 시 에러."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["generate"])
+        assert result.exit_code != 0
+
+    def test_build_no_args_error(self):
+        """인자 없이 build 실행 시 에러."""
+        from click.testing import CliRunner
+        from sandoc.cli import main
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["build"])
+        assert result.exit_code != 0
+
+
+# ── Demo 파일 테스트 ────────────────────────────────────────────
+
+class TestDemoFiles:
+    """데모 파일 유효성 테스트."""
+
+    @pytest.mark.skipif(
+        not DEMO_COMPANY_JSON.exists(),
+        reason="demo/sample_company.json 없음"
+    )
+    def test_demo_company_json_loadable(self):
+        """demo/sample_company.json이 로드 가능."""
+        company = CompanyInfo.from_file(DEMO_COMPANY_JSON)
+        assert company.company_name != ""
+        assert company.ceo_name != ""
+        assert company.item_name != ""
+        assert company.total_budget > 0
+        assert len(company.team_members) > 0
+        assert len(company.budget_items) > 0
+
+    @pytest.mark.skipif(
+        not DEMO_COMPANY_JSON.exists(),
+        reason="demo/sample_company.json 없음"
+    )
+    def test_demo_company_json_valid_structure(self):
+        """demo/sample_company.json이 올바른 구조를 가짐."""
+        company = CompanyInfo.from_file(DEMO_COMPANY_JSON)
+
+        # 기본 정보
+        assert len(company.company_name) > 0
+        assert len(company.ceo_name) > 0
+        assert len(company.business_registration_no) > 0
+        assert len(company.establishment_date) > 0
+
+        # 아이템 정보
+        assert len(company.item_name) > 0
+        assert len(company.item_summary) > 0
+        assert len(company.product_description) > 0
+
+        # 문제인식
+        assert len(company.problem_background) > 0
+        assert len(company.problem_statement) > 0
+        assert len(company.development_motivation) > 0
+
+        # 재무
+        assert company.funding_amount > 0
+        assert company.total_budget > 0
+        assert len(company.budget_items) > 0
+
+        # 팀
+        assert len(company.ceo_background) > 0
+        assert len(company.team_members) > 0
+
+    @pytest.mark.skipif(
+        not DEMO_COMPANY_JSON.exists(),
+        reason="demo/sample_company.json 없음"
+    )
+    def test_demo_company_generates_all_sections(self):
+        """demo 회사 정보로 모든 9개 섹션을 성공적으로 생성."""
+        company = CompanyInfo.from_file(DEMO_COMPANY_JSON)
+        gen = PlanGenerator(company_info=company)
+        plan = gen.generate_full_plan()
+
+        assert len(plan.sections) == 9
+        assert plan.total_word_count > 0
+
+        for section in plan.sections:
+            assert section.word_count > 0, (
+                f"섹션 '{section.title}'의 콘텐츠가 비어있음"
+            )
+
+    def test_demo_script_exists(self):
+        """demo/run_demo.sh 존재."""
+        demo_script = DEMO_DIR / "run_demo.sh"
+        assert demo_script.exists(), "demo/run_demo.sh 없음"
 
 
 # ── 하위 호환 테스트 ──────────────────────────────────────────────
