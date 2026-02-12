@@ -5,7 +5,7 @@ Usage:
     sandoc analyze <file>      양식 또는 공고문 분석
     sandoc classify <folder>   폴더 내 문서 분류
     sandoc profile <hwp_file>  HWP 스타일 프로파일 추출
-    sandoc generate [options]  사업계획서 초안 생성 (스텁)
+    sandoc generate [options]  사업계획서 생성 파이프라인
 """
 
 from __future__ import annotations
@@ -185,48 +185,155 @@ def profile(hwp_file: str, output: str | None) -> None:
 # ── generate ──────────────────────────────────────────────────────
 
 @main.command()
-@click.option("--title", default="사업계획서", help="사업계획서 제목")
-@click.option("--sections", default=None, help="섹션 목록 (쉼표 구분)")
-@click.option("-o", "--output", type=click.Path(), default=None, help="결과 저장 경로 (JSON)")
-def generate(title: str, sections: str | None, output: str | None) -> None:
-    """사업계획서 초안을 생성합니다. (스텁)"""
-    from sandoc.generator import generate_plan
+@click.option("--company-info", "-c", type=click.Path(exists=True), default=None,
+              help="회사 정보 JSON 파일")
+@click.option("--template", "-t", type=click.Path(exists=True), default=None,
+              help="HWP 양식 파일")
+@click.option("--announcement", "-a", type=click.Path(exists=True), default=None,
+              help="PDF 공고문 파일")
+@click.option("--style", "-s", type=click.Path(exists=True), default=None,
+              help="스타일 프로파일 JSON")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="결과 저장 디렉토리")
+@click.option("--prompts-only", is_flag=True, default=False,
+              help="프롬프트만 생성 (콘텐츠 생성 없이)")
+@click.option("--sample", is_flag=True, default=False,
+              help="샘플 회사 정보로 데모 실행")
+def generate(
+    company_info: str | None,
+    template: str | None,
+    announcement: str | None,
+    style: str | None,
+    output: str | None,
+    prompts_only: bool,
+    sample: bool,
+) -> None:
+    """사업계획서를 생성합니다.
 
-    section_list = None
-    if sections:
-        section_list = [s.strip() for s in sections.split(",")]
+    전체 파이프라인: 양식 분석 → 공고문 분석 → 프롬프트 빌드 → 콘텐츠 생성
 
-    click.echo(f"📝 사업계획서 생성 중: {title}")
-    click.echo(f"   (현재 스텁 모드 — 향후 LLM 연동 예정)")
+    \b
+    예시:
+      sandoc generate --sample                              # 샘플 데모
+      sandoc generate -c company.json -o output/            # 회사 정보로 생성
+      sandoc generate -c company.json -t template.hwp -a announcement.pdf
+      sandoc generate -c company.json --prompts-only -o prompts/
+    """
+    from sandoc.generator import PlanGenerator, SECTION_DEFS
+    from sandoc.schema import CompanyInfo, create_sample_company
 
-    plan = generate_plan(
-        template_sections=section_list,
-        context={"title": title},
+    # 1. 회사 정보 로드
+    if sample:
+        click.echo("📋 샘플 회사 정보 사용 (데모 모드)")
+        company = create_sample_company()
+    elif company_info:
+        click.echo(f"📋 회사 정보 로드: {company_info}")
+        company = CompanyInfo.from_file(company_info)
+    else:
+        click.echo("❌ --company-info 또는 --sample 옵션이 필요합니다.", err=True)
+        click.echo("   sandoc generate --sample                  # 데모 모드", err=True)
+        click.echo("   sandoc generate -c company.json           # 회사 정보 JSON", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"   기업명: {company.company_name}")
+    click.echo(f"   아이템: {company.item_name}")
+    click.echo(f"   총사업비: {company.total_budget:,}원")
+
+    # 2. 양식/공고문 분석 (선택)
+    template_analysis = {}
+    announcement_analysis = {}
+    style_profile = {}
+
+    if template:
+        click.echo(f"\n📄 양식 분석 중: {Path(template).name}")
+        from sandoc.analyzer import analyze_template as _at
+        ta = _at(template)
+        template_analysis = {
+            "sections": [{"title": s.title, "level": s.level} for s in ta.sections],
+            "tables_count": ta.tables_count,
+            "input_fields": ta.input_fields,
+        }
+        click.echo(f"   {len(ta.sections)}개 섹션, {ta.tables_count}개 표")
+
+    if announcement:
+        click.echo(f"\n📄 공고문 분석 중: {Path(announcement).name}")
+        from sandoc.analyzer import analyze_announcement as _aa
+        aa = _aa(announcement)
+        announcement_analysis = {
+            "title": aa.title,
+            "scoring_criteria": [{"item": c.item, "score": c.score} for c in aa.scoring_criteria],
+            "key_dates": aa.key_dates,
+        }
+        click.echo(f"   {len(aa.scoring_criteria)}개 평가항목")
+
+    if style:
+        click.echo(f"\n🎨 스타일 로드: {Path(style).name}")
+        style_profile = json.loads(Path(style).read_text(encoding="utf-8"))
+
+    # 3. 생성기 초기화
+    gen = PlanGenerator(
+        company_info=company,
+        template_analysis=template_analysis,
+        announcement_analysis=announcement_analysis,
+        style_profile=style_profile,
     )
 
+    # 4. 출력 디렉토리 설정
+    output_dir = Path(output) if output else Path("output") / company.company_name.replace(" ", "_")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 5. 프롬프트 생성
+    click.echo(f"\n📝 프롬프트 생성 중...")
+    prompt_files = gen.save_prompts(output_dir / "prompts")
+    click.echo(f"   {len(prompt_files)}개 프롬프트 저장 → {output_dir / 'prompts'}")
+
+    if prompts_only:
+        click.echo(f"\n✅ 프롬프트 생성 완료 (--prompts-only 모드)")
+        click.echo(f"   저장 위치: {output_dir / 'prompts'}")
+        return
+
+    # 6. 콘텐츠 생성
+    click.echo(f"\n📝 사업계획서 생성 중...")
+    plan = gen.generate_full_plan()
+
+    # 7. 결과 출력
     click.echo(f"\n{'='*60}")
     click.echo(f"📝 생성 결과: {plan.title}")
     click.echo(f"{'='*60}")
     click.echo(f"  섹션 수: {len(plan.sections)}")
-    click.echo(f"  총 단어: {plan.total_word_count}")
+    click.echo(f"  총 글자수: {plan.total_word_count:,}")
 
+    if company.has_investment_bonus:
+        click.echo(f"  ⭐ 투자유치 가점: 1점 (5억원 이상 투자유치)")
+
+    click.echo(f"\n📋 섹션 목록:")
     for sec in plan.sections:
-        click.echo(f"\n--- {sec.title} ---")
-        click.echo(sec.content[:200])
-        if len(sec.content) > 200:
-            click.echo("  ...")
+        eval_tag = f" [{sec.evaluation_category}]" if sec.evaluation_category else ""
+        click.echo(f"  {sec.section_index+1}. {sec.title}{eval_tag} ({sec.word_count}자)")
 
-    if output:
-        data = {
-            "title": plan.title,
-            "sections": [
-                {"title": s.title, "content": s.content, "words": s.word_count}
-                for s in plan.sections
-            ],
-            "total_words": plan.total_word_count,
-        }
-        _save_json(data, output)
-        click.echo(f"\n💾 저장됨: {output}")
+    # 8. 결과 저장
+    plan_path = output_dir / "plan.json"
+    plan_path.write_text(plan.to_json(), encoding="utf-8")
+    click.echo(f"\n💾 사업계획서 JSON: {plan_path}")
+
+    # 회사 정보 저장
+    company_path = output_dir / "company_info.json"
+    company.save(company_path)
+    click.echo(f"💾 회사 정보 JSON: {company_path}")
+
+    # 각 섹션 콘텐츠를 개별 파일로 저장
+    sections_dir = output_dir / "sections"
+    sections_dir.mkdir(parents=True, exist_ok=True)
+    for sec in plan.sections:
+        sec_path = sections_dir / f"{sec.section_index+1:02d}_{sec.section_key}.md"
+        sec_path.write_text(
+            f"# {sec.title}\n\n{sec.content}\n",
+            encoding="utf-8",
+        )
+
+    click.echo(f"💾 섹션 파일: {sections_dir}/")
+    click.echo(f"\n✅ 사업계획서 생성 완료!")
+    click.echo(f"   출력 디렉토리: {output_dir}")
 
 
 # ── 유틸리티 ──────────────────────────────────────────────────────
