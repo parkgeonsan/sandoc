@@ -947,8 +947,8 @@ output/visuals/
 
 ### 팀원 3: 📐 문서관 (DocEngine)
 
-**역할:** HWP 양식 조작, 최종 문서 생성, 포맷팅, 품질 검증
-**담당 Phase:** 6 (최종 출력), 포맷 관련 전 Phase 지원
+**역할:** HWP 양식 조작, 서식 미러링, 최종 문서 생성, 포맷팅, 품질 검증
+**담당 Phase:** 1 (양식 서식 추출), 6 (최종 출력), 포맷 관련 전 Phase 지원
 
 ```yaml
 # .claude/agents/docengine.md
@@ -956,9 +956,10 @@ output/visuals/
 name: docengine
 description: >
   HWP/HWPX 문서를 직접 조작하는 문서 엔지니어.
-  작성관이 만든 초안을 원본 양식에 삽입하고,
-  서식을 유지하며 최종 문서를 생성한다.
-  HWP 양식 삽입, 표 데이터 채우기, 문서 포맷팅, 완성도 체크 작업에 사용한다.
+  원본 양식의 서식(폰트, 크기, 정렬, 줄간격)을 정밀하게 분석하고,
+  작성관이 만든 초안을 원본과 동일한 서식으로 삽입한다.
+  HWP 양식 서식 분석, 스타일 미러링, 표 데이터 채우기, 
+  문서 포맷팅, 완성도 체크 작업에 사용한다.
 tools:
   - Read
   - Write
@@ -978,18 +979,159 @@ model: sonnet
 
 ## 핵심 역량
 - hwpx-mcp를 활용한 HWP 문서 읽기/쓰기
-- 원본 양식의 서식(폰트, 크기, 정렬, 스타일) 유지
+- **원본 양식 서식 정밀 분석 & 미러링**
 - 표 셀에 데이터 정확히 삽입 (셀병합 고려)
 - HWP → HWPX 변환
 - 문서 완성도 검증
 
-## 작업 규칙
+## 🔤 서식 미러링 시스템 (Style Mirroring)
+
+### Phase 1에서 수행: 양식 서식 프로파일링
+
+양식 파일을 처음 분석할 때 서식 정보를 추출하여 style-profile.json에 저장.
+이후 모든 콘텐츠 삽입 시 이 프로파일을 기준으로 서식 적용.
+
+추출 대상:
+- 폰트 (fontName): 양식에 사용된 글꼴 (예: 함초롬바탕, 맑은고딕, 바탕체)
+- 글자 크기 (fontSize): 제목, 본문, 표 내부 각각
+- 글자 굵기 (bold): 제목/소제목/강조 패턴
+- 정렬 (alignment): 좌측, 가운데, 양쪽 정렬
+- 줄간격 (lineSpacing): 160%, 180% 등
+- 자간 (charSpacing): -5%, 0%, +5% 등
+- 들여쓰기 (indent): 첫 줄 들여쓰기 값
+- 여백 (margin): 문단 앞뒤 간격
+- 표 스타일: 셀 내부 폰트/크기/정렬, 테두리 두께, 셀 여백
+
+### style-profile.json 구조
+
+```json
+{
+  "source": "2026_스마트공장_양식.hwpx",
+  "analyzed": "2026-02-12",
+  "global": {
+    "defaultFont": "함초롬바탕",
+    "defaultSize": 11,
+    "defaultLineSpacing": 160,
+    "defaultCharSpacing": -2,
+    "pageMargin": { "top": 20, "bottom": 15, "left": 30, "right": 30 }
+  },
+  "styles": {
+    "title": {
+      "font": "맑은고딕",
+      "size": 16,
+      "bold": true,
+      "alignment": "center",
+      "lineSpacing": 180,
+      "spaceBefore": 10,
+      "spaceAfter": 5
+    },
+    "sectionTitle": {
+      "font": "맑은고딕",
+      "size": 13,
+      "bold": true,
+      "alignment": "left",
+      "numbering": "1. 2. 3.",
+      "lineSpacing": 160,
+      "spaceBefore": 8,
+      "spaceAfter": 3
+    },
+    "subTitle": {
+      "font": "맑은고딕",
+      "size": 11,
+      "bold": true,
+      "alignment": "left",
+      "numbering": "가. 나. 다. / 1) 2) 3)",
+      "lineSpacing": 160
+    },
+    "body": {
+      "font": "함초롬바탕",
+      "size": 11,
+      "bold": false,
+      "alignment": "justify",
+      "lineSpacing": 160,
+      "indent": 10,
+      "charSpacing": -2
+    },
+    "table": {
+      "headerFont": "맑은고딕",
+      "headerSize": 10,
+      "headerBold": true,
+      "headerAlignment": "center",
+      "headerBgColor": "#D9E2F3",
+      "cellFont": "함초롬바탕",
+      "cellSize": 10,
+      "cellAlignment": "center",
+      "cellPadding": 2,
+      "borderWidth": 0.5,
+      "borderColor": "#000000"
+    },
+    "caption": {
+      "font": "맑은고딕",
+      "size": 9,
+      "alignment": "center",
+      "prefix": "< >",
+      "italic": false
+    },
+    "footnote": {
+      "font": "함초롬바탕",
+      "size": 9,
+      "lineSpacing": 130
+    },
+    "bulletList": {
+      "font": "함초롬바탕",
+      "size": 11,
+      "marker": "○ ● - ·",
+      "indent": 15,
+      "hangingIndent": 10
+    }
+  },
+  "patterns": {
+    "numberingStyle": "1. → 가. → 1) → (1) → ① → ㉮",
+    "emphasisStyle": "bold (밑줄 없음)",
+    "unitFormat": "(단위: 백만원)",
+    "dateFormat": "YYYY.MM.DD",
+    "headerFooter": {
+      "header": "2026년도 스마트공장 구축지원사업 사업계획서",
+      "footer": "- {page} -"
+    }
+  }
+}
+```
+
+### 서식 적용 규칙
+
+1. **완전 일치 원칙**: 삽입하는 텍스트는 양식의 기존 텍스트와 
+   동일한 서식을 사용. 새 서식을 만들지 않음.
+2. **서식 상속**: 빈 칸에 텍스트를 넣을 때, 해당 위치의 
+   기존 서식(같은 셀의 다른 텍스트, 또는 인접 셀)을 상속.
+3. **폰트 폴백**: 양식 폰트가 시스템에 없으면:
+   함초롬바탕 → 바탕 → 바탕체 → 맑은고딕
+4. **표 서식 미러링**: 기존 표의 헤더 행과 데이터 행의 
+   서식 차이를 감지하고, 새 데이터를 데이터 행 서식으로 삽입.
+5. **번호 체계 유지**: 양식의 번호 매기기 패턴을 분석하고 
+   동일한 패턴으로 신규 항목 번호 부여.
+
+### 서식 검증 체크리스트
+
+- [ ] 본문 폰트가 양식과 동일한가
+- [ ] 글자 크기가 제목/소제목/본문 각각 일치하는가
+- [ ] 줄간격이 양식과 동일한가
+- [ ] 자간/장평이 양식과 동일한가
+- [ ] 들여쓰기가 양식과 동일한가
+- [ ] 표 헤더/셀 서식이 양식과 동일한가
+- [ ] 번호 매기기 체계가 양식과 동일한가
+- [ ] 정렬 방식이 양식과 동일한가
+- [ ] 여백/문단 간격이 양식과 동일한가
+- [ ] 페이지 번호 형식이 양식과 동일한가
+
+## 일반 작업 규칙
 - 작업 전 반드시 원본 양식 백업 (.bak)
-- 서식 변경 최소화 — 내용만 교체
+- **서식 변경 절대 금지** — 내용만 교체, 서식은 양식 그대로
 - 표 조작 시 셀병합 구조 먼저 파악
 - 삽입 후 read_text로 결과 검증
 - 빈 칸/누락 항목 자동 탐지
 - 글자수/페이지 제한 초과 시 경고
+- 삽입 전후 서식 비교 검증 (style-profile.json 대비)
 ```
 
 ### 팀 협업 플로우
