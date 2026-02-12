@@ -17,7 +17,211 @@ PLAN.md의 기획을 구현하기 위한 개발 명세.
 | 설정 | JSON | config/settings.json |
 | 데이터 | Markdown + JSON | 프로필, 지식, 컨텍스트 |
 | 버전관리 | Git | 프로젝트 코드 |
-| 차트 | Mermaid | 다이어그램/차트 설계 |
+| 차트/시각화 | mcp-server-chart + mcp-echarts + mcp-mermaid | 아래 상세 |
+
+---
+
+## 🎨 시각 자료 MCP 스택
+
+사업계획서에 들어가는 시각 자료(차트, 다이어그램, 인포그래픽)를 
+실제 이미지로 생성하기 위한 MCP 도구 조합.
+
+### 추천 구성 (3 MCP 조합)
+
+#### 1. 📊 mcp-server-chart (AntVis) — 메인 차트 엔진
+```
+repo: https://github.com/antvis/mcp-server-chart
+설치: npx @anthropic-ai/create-mcp mcp-server-chart
+기능: 26+ 차트 유형 지원
+용도: 사업계획서의 핵심 데이터 차트
+
+지원 차트:
+├── 막대/컬럼 차트 (bar/column) — 매출 비교, 시장 규모
+├── 라인 차트 (line) — 성장 추세, 매출 추이
+├── 영역 차트 (area) — 누적 데이터, 시장 점유율 변화
+├── 원형/도넛 차트 (pie/donut) — 예산 비율, 시장 점유율
+├── 산점도 (scatter) — 경쟁사 포지셔닝
+├── 박스 플롯 (boxplot) — 데이터 분포
+├── 히트맵 (heatmap) — 시간대별 분석
+├── 워터폴 차트 (waterfall) — 매출 증감 분석
+├── 레이더 차트 (radar) — 경쟁력 비교 (기술/가격/서비스)
+├── 트리맵 (treemap) — 비용 구조, 사업 영역 비중
+├── 워드 클라우드 — 핵심 키워드 시각화
+├── 이중축 차트 (dual-axes) — 매출+이익률 동시 표시
+├── 퍼널 (funnel) — 전환율, 고객 여정
+└── 기타: 버블, 히스토그램, sankey, gauge 등
+
+장점:
+- 가장 많은 차트 유형 (26+)
+- PNG 이미지로 직접 출력 → HWP 삽입 가능
+- 한국어 레이블 지원
+- 커스터마이징 옵션 풍부
+
+설정:
+{
+  "mcpServers": {
+    "chart": {
+      "command": "npx",
+      "args": ["-y", "@antv/mcp-server-chart"]
+    }
+  }
+}
+```
+
+#### 2. 📈 mcp-echarts — 고급 차트 (ECharts 기반)
+```
+repo: https://github.com/hustcc/mcp-echarts
+설치: npx mcp-echarts
+기능: Apache ECharts 기반 차트 생성
+용도: 복잡한 데이터 시각화, 인터랙티브 차트
+
+AntVis 대비 장점:
+├── 간트 차트 (사업 추진일정표에 핵심!)
+├── 3D 차트
+├── 지도 차트 (지역별 분석)
+├── 커스텀 인포그래픽
+├── 게이지 차트 (목표 달성률)
+└── 복합 차트 (여러 유형 겹치기)
+
+사업계획서 활용:
+- 추진일정표 (간트) ← 가장 중요
+- 목표 달성률 게이지
+- 지역별 사업 범위 지도
+- 복합 데이터 분석
+
+설정:
+{
+  "mcpServers": {
+    "echarts": {
+      "command": "npx",
+      "args": ["-y", "mcp-echarts"]
+    }
+  }
+}
+```
+
+#### 3. 🔀 mcp-mermaid — 다이어그램 & 플로우차트
+```
+repo: https://github.com/hustcc/mcp-mermaid
+설치: npx mcp-mermaid
+기능: Mermaid 문법 → 이미지 변환
+용도: 구조도, 플로우차트, 마인드맵
+
+지원 다이어그램:
+├── 플로우차트 — 서비스 프로세스, 기술 흐름
+├── 시퀀스 다이어그램 — API 흐름, 사용자 여정
+├── 클래스 다이어그램 — 시스템 구조
+├── 간트 차트 — 추진일정 (간단한 것)
+├── 마인드맵 — 사업 구조, 핵심 역량
+├── 파이 차트 — 간단한 비율
+├── 조직도 (org chart) — 팀 구성
+├── 상태 다이어그램 — 제품 상태 흐름
+├── ER 다이어그램 — 데이터 구조
+└── 타임라인 — 연혁, 로드맵
+
+장점:
+- 텍스트 기반 → 버전 관리 용이
+- 출력: SVG, PNG, base64, URL
+- file 모드로 디스크에 직접 저장
+- 오류 검증 + 자동 수정
+
+설정:
+{
+  "mcpServers": {
+    "mermaid": {
+      "command": "npx",
+      "args": ["-y", "mcp-mermaid"]
+    }
+  }
+}
+```
+
+### 보조 도구 (선택)
+
+#### 4. 📐 mcp-diagram-server — 다이어그램 라이브러리
+```
+repo: https://github.com/angrysky56/mcp-diagram-server
+용도: 다이어그램 영구 저장/재활용 라이브러리
+특징:
+- 자동 저장 + 메타데이터 추적
+- JSON/CSV/마크다운 → 다이어그램 변환
+- 마인드맵 특화
+활용: knowledge/에 다이어그램 패턴 축적
+```
+
+### 3 MCP 역할 분담
+
+```
+시각 자료 유형              │ 담당 MCP              │ 이유
+───────────────────────────┼──────────────────────┼──────────
+매출 추이 라인차트          │ 📊 mcp-server-chart  │ 가장 깔끔
+시장 규모 막대차트          │ 📊 mcp-server-chart  │ 다양한 옵션
+예산 비율 원형차트          │ 📊 mcp-server-chart  │ 커스터마이징
+경쟁사 비교 레이더          │ 📊 mcp-server-chart  │ 레이더 특화
+매출+이익 이중축            │ 📊 mcp-server-chart  │ 이중축 지원
+추진일정 간트차트           │ 📈 mcp-echarts       │ 간트 특화
+목표 달성 게이지            │ 📈 mcp-echarts       │ 게이지 특화
+지역 분포 지도              │ 📈 mcp-echarts       │ 지도 지원
+기술 아키텍처도             │ 🔀 mcp-mermaid       │ 구조도 특화
+서비스 프로세스             │ 🔀 mcp-mermaid       │ 플로우 특화
+조직도                     │ 🔀 mcp-mermaid       │ org chart
+사업 구조 마인드맵          │ 🔀 mcp-mermaid       │ 마인드맵
+회사 연혁 타임라인          │ 🔀 mcp-mermaid       │ 타임라인
+```
+
+### .mcp.json (통합 설정)
+
+```json
+{
+  "mcpServers": {
+    "hwpx": {
+      "command": "uvx",
+      "args": ["hwpx-mcp-server"],
+      "env": {
+        "HWPX_MCP_PAGING_PARA_LIMIT": "500",
+        "HWPX_MCP_AUTOBACKUP": "1",
+        "HWPX_MCP_HARDENING": "1"
+      }
+    },
+    "chart": {
+      "command": "npx",
+      "args": ["-y", "@antv/mcp-server-chart"]
+    },
+    "echarts": {
+      "command": "npx",
+      "args": ["-y", "mcp-echarts"]
+    },
+    "mermaid": {
+      "command": "npx",
+      "args": ["-y", "mcp-mermaid"]
+    }
+  }
+}
+```
+
+### 시각 자료 파이프라인
+
+```
+[VISUAL: 매출 추이 라인차트]
+    │
+    ▼
+비주얼관 판단: "라인차트 → mcp-server-chart 사용"
+    │
+    ▼
+mcp__chart__generate_line_chart({
+  data: [...],
+  xField: "연도",
+  yField: "매출액",
+  title: "연도별 매출 추이",
+  unit: "(백만원)"
+})
+    │
+    ▼
+PNG 이미지 생성 → output/visuals/charts/매출추이.png
+    │
+    ▼
+문서관: hwpx-mcp로 해당 위치에 이미지 삽입
+```
 
 ---
 
