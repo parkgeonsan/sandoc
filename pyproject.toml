@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sandoc"
+version = "0.1.0"
+description = "AI-powered Korean government business plan (사업계획서) generator"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "sandoc team" },
+]
+
+dependencies = [
+    "olefile>=0.47",
+    "pdfplumber>=0.10.0",
+    "click>=8.0",
+]
+
+[project.optional-dependencies]
+hwpx = [
+    "pyhwp>=0.1b12",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+sandoc = "sandoc.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sandoc"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
