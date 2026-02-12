@@ -13,6 +13,8 @@ from sandoc.schema import CompanyInfo, create_sample_company
 from sandoc.generator import PlanGenerator, GeneratedSection, GeneratedPlan
 from sandoc.hwpx_engine import HwpxBuilder, StyleMirror, validate_hwpx, edit_hwpx_text
 from sandoc.output import OutputPipeline, BuildResult, build_hwpx_from_plan, build_hwpx_from_json
+from sandoc.extract import run_extract
+from sandoc.assemble import run_assemble
 
 __all__ = [
     # parser
@@ -44,4 +46,8 @@ __all__ = [
     "BuildResult",
     "build_hwpx_from_plan",
     "build_hwpx_from_json",
+    # extract
+    "run_extract",
+    # assemble
+    "run_assemble",
 ]

@@ -7,6 +7,8 @@ Usage:
     sandoc profile <hwp_file>  HWP 스타일 프로파일 추출
     sandoc generate [options]  사업계획서 생성 파이프라인
     sandoc build [options]     사업계획서 HWPX 출력 (스타일 미러링)
+    sandoc extract <project>   프로젝트 폴더에서 모든 정보 추출 (analyze+classify+profile)
+    sandoc assemble <project>  작성된 섹션 마크다운을 HWPX로 조립
 """
 
 from __future__ import annotations
@@ -482,6 +484,163 @@ def build(
         click.echo(f"   출력 디렉토리: {output_dir}")
     else:
         click.echo(f"\n❌ HWPX 빌드 실패.")
+        raise SystemExit(1)
+
+
+# ── extract ──────────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("-o", "--output", type=click.Path(), default=None,
+              help="context.json 저장 경로 (기본: project_dir/context.json)")
+def extract(project_dir: str, output: str | None) -> None:
+    """프로젝트 폴더에서 모든 정보를 추출합니다 (analyze + classify + profile).
+
+    docs/ 하위 폴더의 모든 문서를 스캔하여:
+      - 문서 분류 (공고문/양식/참고/증빙)
+      - HWP 양식 분석 (섹션, 표, 입력필드)
+      - PDF 공고문 분석 (평가기준, 주요일정)
+      - HWP 스타일 프로파일 추출
+
+    결과를 context.json 과 missing_info.json 으로 저장합니다.
+
+    \b
+    예시:
+      sandoc extract projects/2026-창업도약패키지/
+    """
+    from sandoc.extract import run_extract
+
+    project_path = Path(project_dir)
+    click.echo(f"📦 프로젝트 추출 시작: {project_path.name}")
+
+    result = run_extract(project_path)
+
+    # context.json 저장
+    output_path = Path(output) if output else project_path / "context.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(result["context"], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    click.echo(f"\n💾 context.json → {output_path}")
+
+    # missing_info.json 저장
+    missing_path = output_path.parent / "missing_info.json"
+    missing_path.write_text(
+        json.dumps(result["missing_info"], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    click.echo(f"💾 missing_info.json → {missing_path}")
+
+    # style-profile.json 저장 (추출된 경우)
+    if result.get("style_profile_data"):
+        style_path = output_path.parent / "style-profile.json"
+        style_path.write_text(
+            json.dumps(result["style_profile_data"], ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        click.echo(f"💾 style-profile.json → {style_path}")
+
+    # 요약 출력
+    ctx = result["context"]
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📊 추출 결과 요약")
+    click.echo(f"{'='*60}")
+    click.echo(f"  프로젝트: {ctx.get('project_name', 'N/A')}")
+    click.echo(f"  문서 수: {len(ctx.get('documents', []))}")
+
+    ta = ctx.get("template_analysis")
+    if ta:
+        click.echo(f"  양식 섹션: {len(ta.get('sections', []))}개")
+        click.echo(f"  양식 표: {ta.get('tables_count', 0)}개")
+        click.echo(f"  입력 필드: {len(ta.get('input_fields', []))}개")
+
+    aa = ctx.get("announcement_analysis")
+    if aa:
+        click.echo(f"  공고문 제목: {aa.get('title', 'N/A')[:40]}")
+        click.echo(f"  평가 항목: {len(aa.get('scoring_criteria', []))}개")
+        click.echo(f"  주요 일정: {len(aa.get('key_dates', []))}개")
+
+    missing = ctx.get("missing_info", [])
+    if missing:
+        click.echo(f"\n⚠️  누락 정보 ({len(missing)}개):")
+        for item in missing[:10]:
+            click.echo(f"    - {item}")
+        if len(missing) > 10:
+            click.echo(f"    ... 외 {len(missing) - 10}개")
+
+    click.echo(f"\n✅ 추출 완료!")
+
+
+# ── assemble ─────────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--drafts-dir", "-d", type=click.Path(exists=True, file_okay=False), default=None,
+              help="섹션 마크다운 파일 디렉토리 (기본: project_dir/output/drafts/current/)")
+@click.option("--style", "-s", type=click.Path(exists=True), default=None,
+              help="스타일 프로파일 JSON (기본: project_dir/style-profile.json)")
+@click.option("--output", "-o", type=click.Path(), default=None,
+              help="HWPX 출력 경로")
+def assemble(
+    project_dir: str,
+    drafts_dir: str | None,
+    style: str | None,
+    output: str | None,
+) -> None:
+    """작성된 섹션 마크다운 파일을 HWPX 문서로 조립합니다.
+
+    output/drafts/current/ 의 *.md 파일을 읽어:
+      - plan.json 형식으로 변환
+      - 스타일 프로파일 적용
+      - HWPX 문서 빌드
+      - 결과 검증
+
+    \b
+    예시:
+      sandoc assemble projects/2026-창업도약패키지/
+      sandoc assemble projects/my-project/ -s style-profile.json -o output.hwpx
+    """
+    from sandoc.assemble import run_assemble
+
+    project_path = Path(project_dir)
+    click.echo(f"🔨 HWPX 조립 시작: {project_path.name}")
+
+    result = run_assemble(
+        project_dir=project_path,
+        drafts_dir=Path(drafts_dir) if drafts_dir else None,
+        style_profile_path=Path(style) if style else None,
+        output_path=Path(output) if output else None,
+    )
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📦 조립 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+    click.echo(f"  섹션 수: {result['section_count']}")
+    click.echo(f"  총 글자수: {result['total_chars']:,}")
+
+    if result.get("hwpx_path"):
+        click.echo(f"\n📄 HWPX: {result['hwpx_path']}")
+
+    if result.get("plan_json_path"):
+        click.echo(f"💾 Plan JSON: {result['plan_json_path']}")
+
+    if result.get("validation"):
+        v = result["validation"]
+        click.echo(f"\n🔍 HWPX 검증:")
+        click.echo(f"  유효성: {'✅' if v.get('valid') else '❌'}")
+        click.echo(f"  파일 수: {v.get('file_count', 0)}")
+
+    if result.get("errors"):
+        click.echo(f"\n⚠️  오류:")
+        for err in result["errors"]:
+            click.echo(f"    {err}")
+
+    if result["success"]:
+        click.echo(f"\n✅ HWPX 조립 완료!")
+    else:
+        click.echo(f"\n❌ HWPX 조립 실패.")
         raise SystemExit(1)
 
 

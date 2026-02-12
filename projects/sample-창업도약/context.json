@@ -1,0 +1,74 @@
+{
+  "project_name": "sample-창업도약",
+  "documents": [
+    {"file": "공고문.pdf", "category": "공고문", "confidence": 0.95},
+    {"file": "사업계획서_양식.hwp", "category": "양식", "confidence": 0.95},
+    {"file": "증빙서류_목록.hwp", "category": "증빙", "confidence": 0.95}
+  ],
+  "template_analysis": {
+    "file": "사업계획서_양식.hwp",
+    "sections": [
+      {"title": "□ 신청 및 일반현황", "level": 0},
+      {"title": "□ 창업아이템 개요 및 사업화 계획(요약)", "level": 0},
+      {"title": "1. 창업아이템 개발 동기(필요성) 및 현황", "level": 0},
+      {"title": "2-1. 창업아이템 목표시장(고객) 분석", "level": 0},
+      {"title": "2-2. 창업아이템 사업화 추진 성과", "level": 0},
+      {"title": "3-1. 창업아이템 사업화 추진 전략", "level": 0},
+      {"title": "3-2. 자금운용 계획", "level": 0},
+      {"title": "4. 기업 구성 (Team)", "level": 0}
+    ],
+    "tables_count": 5,
+    "input_fields": ["기업명", "대표자", "개업연월일", "소재지", "직원수"],
+    "total_paragraphs": 120
+  },
+  "announcement_analysis": {
+    "file": "공고문.pdf",
+    "title": "2026년도 창업도약패키지(일반형) 창업기업 모집 공고",
+    "scoring_criteria": [
+      {"category": "평가항목", "item": "문제인식 (Problem)", "score": 25},
+      {"category": "평가항목", "item": "실현가능성 (Solution)", "score": 25},
+      {"category": "평가항목", "item": "성장전략 (Scale-up)", "score": 25},
+      {"category": "평가항목", "item": "팀구성 (Team)", "score": 25}
+    ],
+    "key_dates": [
+      "접수기간: 2026. 2. 1. ~ 2026. 3. 15.",
+      "서면평가: 2026. 4. 1. ~ 4. 15.",
+      "발표평가: 2026. 5. 1. ~ 5. 15."
+    ],
+    "eligibility": [
+      "창업 3년 이상 ~ 7년 이내 중소기업",
+      "사업자등록증 보유 기업"
+    ],
+    "total_pages": 25
+  },
+  "style_profile": "style-profile.json",
+  "company_info_found": {
+    "from_docs": {}
+  },
+  "missing_info": [
+    "company_name",
+    "ceo_name",
+    "business_registration_no",
+    "establishment_date",
+    "employee_count",
+    "address",
+    "item_name",
+    "item_summary",
+    "product_description",
+    "problem_background",
+    "problem_statement",
+    "development_motivation",
+    "target_market",
+    "target_customer",
+    "competitive_advantage",
+    "key_features",
+    "business_model",
+    "growth_strategy",
+    "marketing_plan",
+    "funding_amount",
+    "self_funding_cash",
+    "ceo_background",
+    "team_members",
+    "budget_items"
+  ]
+}
