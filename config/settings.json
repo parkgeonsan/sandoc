@@ -1,0 +1,22 @@
+{
+  "defaultProfile": null,
+  "documentEngine": {
+    "type": "hwpx-mcp-server",
+    "config": {
+      "pagingLimit": 500,
+      "autoBackup": true,
+      "hardening": true
+    }
+  },
+  "writing": {
+    "style": "formal-government",
+    "defaultPreset": "classic",
+    "maxDraftIterations": 10,
+    "autoSelfReview": true
+  },
+  "output": {
+    "format": ["hwpx"],
+    "backupOriginal": true,
+    "generateReview": true
+  }
+}

@@ -1,0 +1,41 @@
+# ======================
+# sandoc .gitignore
+# ======================
+
+# --- 민감 데이터 (회사 정보, 프로젝트 서류) ---
+profiles/*.md
+!profiles/_template.md
+projects/
+
+# --- 환경/시크릿 ---
+.env
+.env.*
+*.key
+*.pem
+credentials.*
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- 에디터/IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Node.js ---
+node_modules/
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- 임시/백업 ---
+*.bak
+*.tmp
+*.log

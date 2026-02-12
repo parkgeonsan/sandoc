@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "hwpx": {
+      "command": "uvx",
+      "args": ["hwpx-mcp-server"],
+      "env": {
+        "HWPX_MCP_PAGING_PARA_LIMIT": "500",
+        "HWPX_MCP_AUTOBACKUP": "1",
+        "HWPX_MCP_HARDENING": "1"
+      }
+    },
+    "chart": {
+      "command": "npx",
+      "args": ["-y", "@antv/mcp-server-chart"]
+    },
+    "echarts": {
+      "command": "npx",
+      "args": ["-y", "mcp-echarts"]
+    },
+    "mermaid": {
+      "command": "npx",
+      "args": ["-y", "mcp-mermaid"]
+    }
+  }
+}
