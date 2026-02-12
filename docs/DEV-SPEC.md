@@ -169,6 +169,158 @@ repo: https://github.com/angrysky56/mcp-diagram-server
 회사 연혁 타임라인          │ 🔀 mcp-mermaid       │ 타임라인
 ```
 
+---
+
+## 🛠️ Claude Code Skills 활용
+
+sandoc에서 활용할 공식/커뮤니티 Claude Code Skills.
+`.claude/skills/`에 설치하여 subagent들이 사용.
+
+### 공식 스킬 (Anthropic)
+
+#### 📄 docx — Word 문서 생성/편집
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/docx
+용도: HWP 출력 실패 시 DOCX 폴백, DOCX → HWP 변환 파이프라인
+활용: 문서관(docengine)이 DOCX 중간 포맷으로 활용
+```
+
+#### 📊 xlsx — Excel 스프레드시트
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/xlsx
+용도: 재무 테이블(매출추정표, 예산서) 생성, 수식 기반 자동 계산
+활용: 비주얼관(visualist)이 재무 데이터 정밀 계산
+  - 예산 합계 자동 검증
+  - 매출 추정 시나리오 (보수적/기본/낙관)
+  - 손익분기점 자동 계산
+  - CSV/표 데이터 가공
+```
+
+#### 📑 pdf — PDF 추출/생성
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/pdf
+용도: PDF 서류 텍스트 추출, 최종본 PDF 출력
+활용: 분석관(analyst)이 PDF 서류 파싱
+  - 사업자등록증 PDF 텍스트 추출
+  - 회사소개서 PDF 파싱
+  - 재무제표 PDF 파싱
+```
+
+#### 📝 doc-coauthoring — 협업 문서 편집
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/doc-coauthoring
+용도: 사업계획서 섹션별 분담 작성 시 협업 관리
+활용: PM이 작성관/비주얼관 작업 통합 시 활용
+```
+
+#### 🎨 canvas-design — 시각 디자인
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/canvas-design
+용도: 인포그래픽, 커버 페이지, 시각적 강조 요소 디자인
+활용: 비주얼관(visualist)이 인포그래픽 이미지 생성
+  - 핵심 수치 하이라이트 이미지
+  - Before/After 비교 인포그래픽
+  - 아이콘 + 텍스트 조합
+  - 커버 페이지 디자인
+  → PNG 출력 → HWP에 이미지로 삽입
+```
+
+#### 🎯 pptx — PowerPoint 생성
+```
+repo: https://github.com/anthropics/skills/tree/main/skills/pptx
+용도: 발표 심사용 PPT 자동 생성 (서면 심사 통과 후)
+활용: 사업계획서 → 발표자료 자동 변환
+  - 핵심 내용 추출 → 슬라이드 구성
+  - 차트/표 재활용
+  - 발표 대본 생성
+```
+
+### 커뮤니티 스킬
+
+#### 📋 planning-with-files — 파일 기반 계획 관리
+```
+repo: https://github.com/OthmanAdi/planning-with-files
+용도: Manus 스타일 마크다운 계획 관리
+활용: PM이 프로젝트 상태/진행 관리
+  - context.md 체계적 관리
+  - 단계별 체크리스트 추적
+  - 작업 상태 실시간 반영
+```
+
+#### ✍️ humanizer — AI 흔적 제거
+```
+repo: https://github.com/blader/humanizer
+용도: AI가 생성한 사업계획서 텍스트에서 AI 느낌 제거
+활용: 작성관(writer)의 최종 단계
+  - AI 특유의 패턴 제거
+  - 자연스러운 문체로 후처리
+  - 심사위원이 AI 작성 의심 방지
+⚠️ 한국어 버전: https://github.com/op7418/Humanizer-zh (중국어지만 참고)
+```
+
+#### 🧠 Claudeception — 자율 학습
+```
+repo: https://github.com/blader/Claudeception
+용도: 작업하면서 자동으로 스킬 추출 & 학습
+활용: knowledge/ 자동 축적
+  - 사업계획서 작성 패턴 자동 추출
+  - 효과적 표현 자동 수집
+  - 반복 작업 자동화
+```
+
+#### 🔍 last30days — 최신 트렌드 조사
+```
+repo: https://github.com/mvanhorn/last30days-skill
+용도: Reddit, X에서 최근 30일 트렌드 조사
+활용: 분석관(analyst)의 시장조사 보조
+  - 사업 관련 최신 트렌드 파악
+  - 시장 동향 데이터 수집
+  - 기술 트렌드 근거 자료
+```
+
+#### ✏️ oh-my-writing — 콘텐츠 작성 보조
+```
+repo: https://github.com/z0gSh1u/oh-my-writing-skill
+용도: 깊이 있는 콘텐츠 작성 + 리서치 + AI 흔적 최적화
+활용: 작성관(writer) 보조
+  - 사용자 요구 명확화
+  - 심층 리서치 기반 작성
+  - AI 흔적 최적화
+```
+
+### Skills 설치 구조
+
+```
+~/001_Projects/H1-sandoc/
+├── .claude/
+│   ├── agents/                 # Subagents (팀원)
+│   │   ├── analyst.md
+│   │   ├── writer.md
+│   │   ├── visualist.md
+│   │   └── docengine.md
+│   └── skills/                 # Skills (도구)
+│       ├── docx/               # 공식: DOCX 생성/편집
+│       ├── xlsx/               # 공식: Excel 스프레드시트
+│       ├── pdf/                # 공식: PDF 추출/생성
+│       ├── canvas-design/      # 공식: 시각 디자인/인포그래픽
+│       ├── pptx/               # 공식: PPT 생성 (발표 심사용)
+│       ├── planning/           # 커뮤니티: 파일 기반 계획
+│       ├── humanizer/          # 커뮤니티: AI 흔적 제거
+│       └── research/           # 커뮤니티: 트렌드 조사
+```
+
+### Subagent ↔ Skill 매핑
+
+```
+팀원              │ 사용하는 Skills         │ 사용하는 MCP
+──────────────────┼────────────────────────┼──────────────────
+📋 분석관(analyst) │ pdf, research          │ hwpx
+✍️ 작성관(writer)  │ humanizer              │ -
+🎨 비주얼관(visual)│ xlsx, canvas-design    │ chart, echarts, mermaid
+📐 문서관(doceng)  │ docx, pptx             │ hwpx
+🤖 PM             │ planning               │ -
+```
+
 ### .mcp.json (통합 설정)
 
 ```json
