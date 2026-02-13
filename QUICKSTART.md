@@ -13,15 +13,24 @@ uv sync            # 또는: pip install -e .
 source .venv/bin/activate
 ```
 
-## 전체 워크플로우 (6단계)
+## 전체 워크플로우 (8단계)
 
 ```
 1. 프로젝트 생성     →  scripts/new-project.sh
 2. 서류 넣기         →  docs/ 폴더에 PDF, HWP 복사
 3. 추출              →  sandoc extract
-4. 초안 작성         →  Claude Code가 context.json 읽고 섹션 작성
-5. 조립              →  sandoc assemble
-6. 완성              →  output/사업계획서.hwpx
+4. 정보 수집         →  sandoc interview → 답변 작성 → sandoc interview --fill
+5. 초안 작성         →  Claude Code가 context.json 읽고 섹션 작성
+6. 검토 & 조립       →  sandoc run (visualize → review → assemble)
+7. HWP 삽입 준비     →  sandoc inject → 지시서 생성
+8. 지식 축적         →  sandoc learn → 표현/패턴 저장
+```
+
+### 원커맨드 실행 (한 번에!)
+
+```bash
+# 전체 파이프라인 실행 (extract → visualize → review → assemble)
+sandoc run projects/2026-창업도약패키지/ -c company.json
 ```
 
 ---
@@ -76,7 +85,24 @@ projects/2026-창업도약패키지/
 └── missing_info.json     ← 사용자에게 확인 필요한 누락 항목
 ```
 
-## 4단계: 초안 작성 (Claude Code)
+## 4단계: 정보 수집 (interview)
+
+```bash
+# 설문지 + JSON 템플릿 생성
+sandoc interview projects/2026-창업도약패키지/
+```
+
+생성되는 파일:
+- `output/questionnaire.md` — 카테고리별 설문지 (기업정보, 아이템정보, 재무정보, 사업계획)
+- `output/company_info_template.json` — 필드별 설명과 예시가 포함된 JSON 템플릿
+
+JSON 템플릿을 채운 후 병합:
+```bash
+# 작성된 답변을 context.json 에 병합
+sandoc interview projects/2026-창업도약패키지/ --fill answers.json
+```
+
+## 5단계: 초안 작성 (Claude Code)
 
 Claude Code에서 프로젝트 열기:
 
@@ -111,28 +137,45 @@ output/drafts/current/
 └── 09_funding_plan.md          # 사업비 집행 계획
 ```
 
-## 5단계: 조립 (assemble)
+## 6단계: 검토 & 조립 (run)
 
 ```bash
+# 전체 파이프라인 (visualize → review → assemble)
+sandoc run projects/2026-창업도약패키지/ --skip-extract
+
+# 또는 개별 실행
+sandoc visualize projects/2026-창업도약패키지/
+sandoc review projects/2026-창업도약패키지/
 sandoc assemble projects/2026-창업도약패키지/
 ```
 
 수행 작업:
-- 📖 9개 마크다운 섹션 읽기
-- 🎨 스타일 프로파일 적용 (원본 양식 서식 미러링)
-- 📦 HWPX 문서 빌드
-- ✅ 구조 검증
+- 📊 시각화 차트 생성 (매출 추이, 사업비 구성, TAM/SAM/SOM)
+- 🔍 자가 검토 (섹션별 점수, 누락 항목, 개선 사항)
+- 📦 HWPX + HTML 문서 빌드
 
-## 6단계: 완성!
+## 7단계: HWP 삽입 준비 (inject)
 
-```
-projects/2026-창업도약패키지/
-└── output/
-    ├── sandoc_사업계획서.hwpx   ← 최종 HWPX 파일
-    └── plan.json               ← 생성된 계획 JSON
+```bash
+sandoc inject projects/2026-창업도약패키지/
 ```
 
-한글(HWP)에서 `.hwpx` 파일을 열어 최종 확인 후 제출합니다.
+생성되는 파일:
+- `output/injection_map.json` — 초안↔양식 섹션 매핑 정보
+- `output/injection_instructions.md` — hwpx-mcp 로 실제 삽입할 때 참조할 지시서
+
+hwpx-mcp 가 사용 가능할 때, 지시서를 따라 원본 양식에 내용을 삽입합니다.
+
+## 8단계: 지식 축적 (learn)
+
+```bash
+sandoc learn projects/2026-창업도약패키지/
+```
+
+완성된 초안에서 효과적인 표현/패턴을 추출하여 재활용합니다:
+- `knowledge/expressions/` — 성과 수치, 비교 우위 등 효과적 표현
+- `knowledge/patterns/` — 표, 불릿, 번호 목록 등 구조 패턴
+- `knowledge/lessons.md` — 프로젝트별 교훈 기록
 
 ---
 
@@ -148,12 +191,20 @@ sandoc build --sample -o output/demo
 | 명령어 | 설명 |
 |--------|------|
 | `sandoc extract <project>` | 프로젝트 docs/ 스캔 → context.json 생성 |
-| `sandoc assemble <project>` | 마크다운 초안 → HWPX 조립 |
+| `sandoc interview <project>` | 누락 정보 설문지 생성 |
+| `sandoc interview <project> --fill <answers.json>` | 답변을 context.json 에 병합 |
+| `sandoc visualize <project>` | 초안에서 시각화 차트 생성 |
+| `sandoc review <project>` | 사업계획서 자가 검토 |
+| `sandoc assemble <project>` | 마크다운 초안 → HWPX + HTML 조립 |
+| `sandoc inject <project>` | HWP 양식 삽입 매핑 + 지시서 생성 |
+| `sandoc learn <project>` | 초안에서 표현/패턴 지식 축적 |
+| `sandoc run <project>` | 전체 파이프라인 순차 실행 |
 | `sandoc analyze <file>` | HWP 양식 또는 PDF 공고문 개별 분석 |
 | `sandoc classify <folder>` | 폴더 내 문서 자동 분류 |
 | `sandoc profile <hwp>` | HWP 스타일 프로파일 추출 |
 | `sandoc generate --sample` | 샘플 사업계획서 텍스트 생성 |
 | `sandoc build --sample` | 샘플 사업계획서 HWPX 빌드 |
+| `sandoc profile-register` | 기업 프로필 등록/관리 |
 
 ## MCP 서버 (Claude Code 연동)
 

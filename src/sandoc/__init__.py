@@ -18,6 +18,10 @@ from sandoc.assemble import run_assemble
 from sandoc.visualize import run_visualize
 from sandoc.review import run_review
 from sandoc.profile_register import run_profile_register
+from sandoc.interview import run_interview
+from sandoc.learn import run_learn
+from sandoc.inject import run_inject
+from sandoc.run import run_pipeline
 
 __all__ = [
     # parser
@@ -59,4 +63,12 @@ __all__ = [
     "run_review",
     # profile_register
     "run_profile_register",
+    # interview
+    "run_interview",
+    # learn
+    "run_learn",
+    # inject
+    "run_inject",
+    # run (pipeline)
+    "run_pipeline",
 ]

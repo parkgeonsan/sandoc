@@ -12,6 +12,10 @@ Usage:
     sandoc visualize <project> 초안에서 시각화 차트 생성
     sandoc review <project>    사업계획서 자가 검토
     sandoc profile-register    기업 프로필 등록
+    sandoc interview <project> 누락 정보 설문지 생성 / 답변 병합
+    sandoc learn <project>     완성된 초안에서 지식 축적
+    sandoc inject <project>    HWP 템플릿 삽입 매핑 생성
+    sandoc run <project>       전체 파이프라인 실행
 """
 
 from __future__ import annotations
@@ -839,6 +843,255 @@ def profile_register(
             for err in result["errors"]:
                 click.echo(f"    {err}")
         raise SystemExit(1)
+
+
+# ── interview ─────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--fill", "-f", type=click.Path(exists=True), default=None,
+              help="answers.json 파일로 누락 정보 병합")
+def interview(project_dir: str, fill: str | None) -> None:
+    """누락 정보 설문지를 생성하거나, 답변을 병합합니다.
+
+    missing_info.json 을 읽어 카테고리별 설문지(questionnaire.md)와
+    작성 가능한 JSON 템플릿(company_info_template.json)을 생성합니다.
+
+    --fill 옵션으로 작성된 답변을 context.json 에 병합할 수 있습니다.
+
+    \b
+    예시:
+      sandoc interview projects/2026-창업도약패키지/
+      sandoc interview projects/2026-창업도약패키지/ --fill answers.json
+    """
+    from sandoc.interview import run_interview
+
+    project_path = Path(project_dir)
+
+    if fill:
+        click.echo(f"📝 답변 병합 모드: {Path(fill).name}")
+    else:
+        click.echo(f"📋 설문지 생성 중: {project_path.name}")
+
+    result = run_interview(
+        project_path,
+        fill_path=Path(fill) if fill else None,
+    )
+
+    if result["mode"] == "fill":
+        click.echo(f"\n{'='*60}")
+        click.echo(f"📝 병합 결과")
+        click.echo(f"{'='*60}")
+        click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+        click.echo(f"  병합된 필드: {result['merged_fields']}개")
+    else:
+        click.echo(f"\n{'='*60}")
+        click.echo(f"📋 설문지 생성 결과")
+        click.echo(f"{'='*60}")
+        click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+        if result.get("questionnaire_path"):
+            click.echo(f"\n📄 설문지: {result['questionnaire_path']}")
+        if result.get("template_path"):
+            click.echo(f"📄 JSON 템플릿: {result['template_path']}")
+
+    if result.get("errors"):
+        for err in result["errors"]:
+            click.echo(f"⚠️  {err}")
+        raise SystemExit(1)
+
+    if result["success"]:
+        if result["mode"] == "fill":
+            click.echo(f"\n✅ 답변 병합 완료!")
+        else:
+            click.echo(f"\n✅ 설문지 생성 완료!")
+            click.echo(f"   JSON 템플릿을 채워서 --fill 옵션으로 병합하세요.")
+
+
+# ── learn ────────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--knowledge-dir", "-k", type=click.Path(), default=None,
+              help="지식 저장 디렉토리 (기본: knowledge/)")
+def learn(project_dir: str, knowledge_dir: str | None) -> None:
+    """완성된 초안에서 효과적 표현/패턴을 추출하여 지식을 축적합니다.
+
+    output/drafts/current/ 의 마크다운 파일을 분석하여:
+      - 효과적 표현을 knowledge/expressions/ 에 저장
+      - 구조적 패턴을 knowledge/patterns/ 에 저장
+      - 교훈을 knowledge/lessons.md 에 기록
+
+    \b
+    예시:
+      sandoc learn projects/2026-창업도약패키지/
+      sandoc learn projects/my-project/ -k ./my_knowledge/
+    """
+    from sandoc.learn import run_learn
+
+    project_path = Path(project_dir)
+    click.echo(f"📚 지식 축적 시작: {project_path.name}")
+
+    result = run_learn(
+        project_path,
+        knowledge_dir=Path(knowledge_dir) if knowledge_dir else None,
+    )
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📚 학습 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+    click.echo(f"  처리 섹션: {len(result['processed_sections'])}개")
+    click.echo(f"  추출 표현: {result['expressions_count']}개")
+    click.echo(f"  추출 패턴: {result['patterns_count']}개")
+
+    if result.get("lessons_path"):
+        click.echo(f"\n📄 교훈 기록: {result['lessons_path']}")
+
+    if result.get("errors"):
+        for err in result["errors"]:
+            click.echo(f"⚠️  {err}")
+        raise SystemExit(1)
+
+    if result["success"]:
+        click.echo(f"\n✅ 지식 축적 완료!")
+
+
+# ── inject ───────────────────────────────────────────────────
+
+@main.command()
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+def inject(project_dir: str) -> None:
+    """HWP 템플릿 삽입 매핑 파일을 생성합니다.
+
+    초안 섹션과 원본 HWP 양식의 매핑 정보를 생성합니다:
+      - injection_map.json: 섹션↔양식 매핑
+      - injection_instructions.md: hwpx-mcp 사용 지시서
+
+    hwpx-mcp 가 사용 가능할 때, 지시서를 따라 실제 삽입을 수행합니다.
+
+    \b
+    예시:
+      sandoc inject projects/2026-창업도약패키지/
+    """
+    from sandoc.inject import run_inject
+
+    project_path = Path(project_dir)
+    click.echo(f"💉 삽입 매핑 생성 중: {project_path.name}")
+
+    result = run_inject(project_path)
+
+    click.echo(f"\n{'='*60}")
+    click.echo(f"💉 매핑 결과")
+    click.echo(f"{'='*60}")
+    click.echo(f"  상태: {'✅ 성공' if result['success'] else '❌ 실패'}")
+    click.echo(f"  매핑 수: {result['mappings_count']}개")
+
+    if result.get("map_path"):
+        click.echo(f"\n📄 매핑 파일: {result['map_path']}")
+    if result.get("instructions_path"):
+        click.echo(f"📄 삽입 지시서: {result['instructions_path']}")
+
+    if result.get("errors"):
+        for err in result["errors"]:
+            click.echo(f"⚠️  {err}")
+        raise SystemExit(1)
+
+    if result["success"]:
+        click.echo(f"\n✅ 삽입 매핑 생성 완료!")
+        click.echo(f"   hwpx-mcp 사용 시 injection_instructions.md 를 참조하세요.")
+
+
+# ── run (full pipeline) ──────────────────────────────────────
+
+@main.command("run")
+@click.argument("project_dir", type=click.Path(exists=True, file_okay=False))
+@click.option("--company-info", "-c", type=click.Path(exists=True), default=None,
+              help="회사 정보 JSON 파일 (context.json 에 병합)")
+@click.option("--skip-extract", is_flag=True, default=False,
+              help="extract 단계 건너뛰기")
+@click.option("--skip-visualize", is_flag=True, default=False,
+              help="visualize 단계 건너뛰기")
+@click.option("--skip-review", is_flag=True, default=False,
+              help="review 단계 건너뛰기")
+def run_cmd(
+    project_dir: str,
+    company_info: str | None,
+    skip_extract: bool,
+    skip_visualize: bool,
+    skip_review: bool,
+) -> None:
+    """전체 파이프라인을 순차 실행합니다.
+
+    extract → (company-info 병합) → visualize → review → assemble
+
+    \b
+    예시:
+      sandoc run projects/2026-창업도약패키지/
+      sandoc run projects/my-project/ -c company.json
+      sandoc run projects/my-project/ --skip-extract --skip-review
+    """
+    from sandoc.run import run_pipeline
+
+    project_path = Path(project_dir)
+    click.echo(f"🚀 전체 파이프라인 시작: {project_path.name}")
+    click.echo(f"{'='*60}")
+
+    result = run_pipeline(
+        project_path,
+        company_info_path=Path(company_info) if company_info else None,
+        skip_extract=skip_extract,
+        skip_visualize=skip_visualize,
+        skip_review=skip_review,
+    )
+
+    # 단계별 결과 출력
+    click.echo(f"\n{'='*60}")
+    click.echo(f"📊 파이프라인 결과")
+    click.echo(f"{'='*60}")
+
+    steps = result.get("steps", {})
+    for step_name, step_data in steps.items():
+        if isinstance(step_data, dict):
+            status = "✅" if step_data.get("success") else "❌"
+            click.echo(f"  {status} {step_name}")
+        elif isinstance(step_data, str):
+            click.echo(f"  ℹ️  {step_data}")
+
+    summary = result["summary"]
+    click.echo(f"\n📋 요약:")
+    click.echo(f"  완료 단계: {summary['completed_steps']}/{summary['total_steps']}")
+
+    if summary.get("missing_info_count"):
+        click.echo(f"  누락 정보: {summary['missing_info_count']}개")
+
+    if summary.get("overall_score") is not None:
+        score = summary["overall_score"]
+        click.echo(f"  검토 점수: {score:.0f}/100점")
+
+    if summary.get("section_count"):
+        click.echo(f"  작성 섹션: {summary['section_count']}개")
+
+    if summary.get("hwpx_path"):
+        click.echo(f"\n📄 HWPX: {summary['hwpx_path']}")
+    if summary.get("html_path"):
+        click.echo(f"🌐 HTML: {summary['html_path']}")
+
+    if summary.get("failed_steps"):
+        click.echo(f"\n⚠️  실패 단계: {', '.join(summary['failed_steps'])}")
+
+    if result.get("errors"):
+        click.echo(f"\n⚠️  오류:")
+        for err in result["errors"]:
+            click.echo(f"    {err}")
+
+    if result["success"]:
+        click.echo(f"\n✅ 파이프라인 완료!")
+    else:
+        if summary["completed_steps"] > 0:
+            click.echo(f"\n⚠️  파이프라인 부분 완료 ({summary['completed_steps']}/{summary['total_steps']})")
+        else:
+            click.echo(f"\n❌ 파이프라인 실패.")
+            raise SystemExit(1)
 
 
 # ── 유틸리티 ──────────────────────────────────────────────────────

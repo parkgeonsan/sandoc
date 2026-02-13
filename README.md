@@ -51,6 +51,46 @@ output/demo/
 
 ## CLI Commands
 
+### `sandoc run` — 전체 파이프라인 실행
+
+```bash
+# 전체 파이프라인 (extract → visualize → review → assemble)
+sandoc run projects/2026-창업도약패키지/
+
+# 회사 정보 포함
+sandoc run projects/my-project/ -c company.json
+
+# 단계 건너뛰기
+sandoc run projects/my-project/ --skip-extract --skip-review
+```
+
+### `sandoc interview` — 누락 정보 수집
+
+```bash
+# 설문지 + JSON 템플릿 생성
+sandoc interview projects/2026-창업도약패키지/
+
+# 작성된 답변 병합
+sandoc interview projects/2026-창업도약패키지/ --fill answers.json
+```
+
+### `sandoc learn` — 지식 축적
+
+```bash
+# 초안에서 표현/패턴 추출
+sandoc learn projects/2026-창업도약패키지/
+
+# 지식 디렉토리 지정
+sandoc learn projects/my-project/ -k ./my_knowledge/
+```
+
+### `sandoc inject` — HWP 삽입 매핑 생성
+
+```bash
+# 초안↔양식 매핑 + hwpx-mcp 지시서 생성
+sandoc inject projects/2026-창업도약패키지/
+```
+
 ### `sandoc generate` — 사업계획서 콘텐츠 생성
 
 ```bash
@@ -230,7 +270,7 @@ sandoc build --sample -o demo/output
 ```
 sandoc/
 ├── src/sandoc/                 # 메인 패키지
-│   ├── cli.py                  # CLI (Click)
+│   ├── cli.py                  # CLI (Click) — 15 commands
 │   ├── schema.py               # CompanyInfo 데이터 모델
 │   ├── generator.py            # 콘텐츠 생성 파이프라인
 │   ├── hwpx_engine.py          # HWPX 빌드 엔진
@@ -238,12 +278,24 @@ sandoc/
 │   ├── analyzer.py             # HWP/PDF 분석
 │   ├── parser.py               # HWP 파서 (OLE2)
 │   ├── style.py                # 스타일 프로파일 추출
+│   ├── extract.py              # 문서 추출 파이프라인
+│   ├── assemble.py             # 마크다운 → HWPX 조립
+│   ├── visualize.py            # 시각화 차트 생성
+│   ├── review.py               # 사업계획서 자가 검토
+│   ├── interview.py            # 누락 정보 수집/병합
+│   ├── learn.py                # 지식 축적 (표현/패턴)
+│   ├── inject.py               # HWP 양식 삽입 매핑
+│   ├── run.py                  # 전체 파이프라인 실행
+│   ├── profile_register.py     # 기업 프로필 등록
 │   └── prompts/                # 9개 프롬프트 템플릿
 │       ├── 01_company_overview.txt
 │       └── ...
 │
-├── tests/                      # 테스트
+├── tests/                      # 테스트 (266+)
 │   ├── test_e2e.py             # E2E 파이프라인 테스트
+│   ├── test_extract_assemble.py # Extract/Assemble 테스트
+│   ├── test_visualize_review_profile.py # Visualize/Review/Profile 테스트
+│   ├── test_interview_learn_inject_run.py # Interview/Learn/Inject/Run 테스트
 │   ├── test_output.py          # HWPX 엔진 테스트
 │   ├── test_parser.py          # HWP 파서 테스트
 │   └── v1-data/                # 테스트 데이터
@@ -255,6 +307,9 @@ sandoc/
 ├── .claude/agents/             # AI 에이전트 정의
 ├── config/                     # 설정
 ├── knowledge/                  # 축적 지식
+│   ├── expressions/            # 효과적 표현 DB
+│   ├── patterns/               # 구조 패턴 DB
+│   └── lessons.md              # 프로젝트별 교훈 기록
 ├── profiles/                   # 스타일 프로파일 DB
 └── pyproject.toml              # 프로젝트 설정
 ```
