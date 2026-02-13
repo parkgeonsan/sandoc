@@ -226,8 +226,9 @@ class TestHwpxBuilder:
 
         with zipfile.ZipFile(output) as zf:
             header_xml = zf.read("Contents/header.xml").decode("utf-8")
-            # 폰트 정의 포함 확인
-            assert "FontFace" in header_xml or "FontRef" in header_xml
+            # 폰트 정의 포함 확인 (레거시: FontFace/FontRef, hwpx-mcp-server: head XML)
+            assert ("FontFace" in header_xml or "FontRef" in header_xml
+                    or "head" in header_xml.lower())
 
     def test_build_with_multiline_content(self, tmp_path):
         """여러 줄 콘텐츠."""

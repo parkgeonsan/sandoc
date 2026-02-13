@@ -10,6 +10,7 @@ HWPX(ZIP 패키지) 문서를 직접 생성·편집하여,
   - 섹션별 콘텐츠 삽입 (텍스트, 표, 이미지 placeholder)
   - 원본 HWPX 편집 (텍스트 찾기/바꾸기)
   - HWP → HWPX 변환 (pyhwp 위임)
+  - hwpx-mcp-server 연동 (한컴오피스 호환 HWPX 출력)
 """
 
 from __future__ import annotations
@@ -25,6 +26,15 @@ from typing import Any
 from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
+
+# ── hwpx-mcp-server 가용성 확인 ──────────────────────────────────
+_has_hwpx_mcp = False
+try:
+    from hwpx_mcp_server.hwpx_ops import HwpxOps as _HwpxOps  # noqa: F401
+
+    _has_hwpx_mcp = True
+except ImportError:
+    _HwpxOps = None  # type: ignore[assignment,misc]
 
 # ── HWPX 네임스페이스 ────────────────────────────────────────────
 # HWPX(OWPML)에서 사용하는 XML 네임스페이스
@@ -221,6 +231,9 @@ class HwpxBuilder:
         """
         HWPX 파일을 생성합니다.
 
+        hwpx-mcp-server가 설치되어 있으면 이를 사용하여 한컴오피스 호환
+        HWPX를 생성합니다. 미설치 시 기존 XML 직접 생성으로 폴백합니다.
+
         Args:
             output_path: 출력 HWPX 파일 경로
 
@@ -230,6 +243,73 @@ class HwpxBuilder:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
+        if _has_hwpx_mcp:
+            return self._build_with_mcp(output_path)
+        else:
+            logger.warning(
+                "hwpx-mcp-server가 설치되지 않았습니다. "
+                "한컴오피스에서 열 수 없는 레거시 HWPX를 생성합니다. "
+                "pip install hwpx-mcp-server 로 설치하세요."
+            )
+            return self._build_legacy(output_path)
+
+    def _build_with_mcp(self, output_path: Path) -> Path:
+        """hwpx-mcp-server (HwpxOps)를 이용한 한컴 호환 HWPX 빌드."""
+        assert _HwpxOps is not None
+        ops = _HwpxOps()
+
+        out_str = str(output_path)
+
+        # 1) 빈 문서 생성
+        ops.make_blank(out_str)
+
+        # 2) 섹션별 콘텐츠 삽입
+        for section in self._sections:
+            title = section["title"]
+            content = section["content"]
+
+            # 제목 (볼드, 큰 폰트)
+            title_style: dict[str, Any] = {"bold": True}
+            font_size = self.style.get_font_size_pt("sectionTitle")
+            if font_size and font_size != 10.0:
+                title_style["fontSize"] = font_size
+            ops.add_paragraph(out_str, title, run_style=title_style)
+
+            # 본문 줄 단위 파싱
+            lines = content.split("\n") if content else []
+            # 성능: 순수 텍스트 줄은 벌크 삽입
+            bulk_buf: list[str] = []
+
+            for line in lines:
+                stripped = line.strip()
+
+                if not stripped:
+                    # 빈 줄
+                    bulk_buf.append("")
+                    continue
+
+                # 표 행 (| 로 시작) — 그대로 텍스트로 유지
+                if stripped.startswith("|"):
+                    if set(stripped.replace("|", "").replace("-", "").strip()) <= {"", " "}:
+                        continue  # 표 구분선 건너뛰기
+                    bulk_buf.append(stripped)
+                    continue
+
+                # 일반 텍스트 (불릿 포함)
+                bulk_buf.append(stripped)
+
+            # 버퍼 플러시
+            if bulk_buf:
+                ops.insert_paragraphs_bulk(out_str, bulk_buf)
+
+            # 섹션 간 빈 줄
+            ops.add_paragraph(out_str, "")
+
+        logger.info("HWPX 빌드 완료 (hwpx-mcp-server): %s (%d 섹션)", output_path, len(self._sections))
+        return output_path
+
+    def _build_legacy(self, output_path: Path) -> Path:
+        """레거시: 직접 XML 생성 기반 HWPX 빌드 (한컴 비호환)."""
         with tempfile.TemporaryDirectory(prefix="sandoc_hwpx_build_") as tmp_dir:
             tmp = Path(tmp_dir)
 
@@ -269,7 +349,7 @@ class HwpxBuilder:
                         arcname = str(fpath.relative_to(tmp))
                         zf.write(fpath, arcname, compress_type=zipfile.ZIP_DEFLATED)
 
-        logger.info("HWPX 빌드 완료: %s (%d 섹션)", output_path, len(self._sections))
+        logger.info("HWPX 빌드 완료 (레거시): %s (%d 섹션)", output_path, len(self._sections))
         return output_path
 
     # ── XML 생성 내부 메서드 ──────────────────────────────────
@@ -645,8 +725,8 @@ def hwp_to_hwpx(
     """
     HWP 파일을 HWPX(ODF-like XML 패키지)로 변환합니다.
 
-    pyhwp 의 hwp5html 도구를 사용합니다.
-    향후 직접 변환 엔진으로 교체 예정.
+    hwpx-mcp-server가 설치되어 있으면 이를 우선 사용하고,
+    없으면 pyhwp의 hwp5html 도구에 위임합니다.
 
     Args:
         hwp_path: 입력 HWP 파일 경로
@@ -668,7 +748,18 @@ def hwp_to_hwpx(
     else:
         output_path = Path(output_path)
 
-    # pyhwp의 hwp5html 사용 시도
+    # 1) hwpx-mcp-server 사용 시도
+    if _has_hwpx_mcp:
+        try:
+            assert _HwpxOps is not None
+            ops = _HwpxOps()
+            result = ops.convert_hwp_to_hwpx(str(hwp_path), str(output_path))
+            logger.info("HWP → HWPX 변환 완료 (hwpx-mcp-server): %s → %s", hwp_path, output_path)
+            return output_path
+        except Exception as e:
+            logger.warning("hwpx-mcp-server 변환 실패, pyhwp 폴백 시도: %s", e)
+
+    # 2) pyhwp의 hwp5html 폴백
     try:
         result = subprocess.run(
             ["hwp5html", "--output", str(output_path), str(hwp_path)],
@@ -681,61 +772,114 @@ def hwp_to_hwpx(
                 f"hwp5html 변환 실패 (exit code {result.returncode}): "
                 f"{result.stderr}"
             )
-        logger.info("HWP → HWPX 변환 완료: %s → %s", hwp_path, output_path)
+        logger.info("HWP → HWPX 변환 완료 (pyhwp): %s → %s", hwp_path, output_path)
         return output_path
 
     except FileNotFoundError:
         raise RuntimeError(
-            "hwp5html 명령을 찾을 수 없습니다. "
-            "pip install pyhwp 로 설치하세요. "
-            "또는 pip install sandoc[hwpx] 로 설치하세요."
+            "HWP → HWPX 변환 도구를 찾을 수 없습니다. "
+            "pip install hwpx-mcp-server 또는 pip install pyhwp 로 설치하세요."
         )
 
 
-# ── HWPX-MCP 서버 연동 (스텁) ────────────────────────────────────
+# ── HWPX-MCP 서버 연동 ────────────────────────────────────────────
 
 class HwpxMcpClient:
     """
-    향후 hwpx-mcp-server 연동을 위한 클라이언트 스텁.
+    hwpx-mcp-server 로컬 Python API를 이용한 HWPX 생성/편집 클라이언트.
 
-    MCP (Model Context Protocol) 서버를 통해 HWPX 파일을
-    프로그래매틱하게 생성/편집할 수 있는 인터페이스.
+    hwpx-mcp-server가 설치되어 있으면 HwpxOps를 직접 사용합니다.
     """
 
     def __init__(self, server_url: str = "http://localhost:3000"):
         self.server_url = server_url
         self._connected = False
+        self._ops = _HwpxOps() if _has_hwpx_mcp else None
+
+    @property
+    def available(self) -> bool:
+        """hwpx-mcp-server를 사용할 수 있는지 여부."""
+        return self._ops is not None
 
     def connect(self) -> bool:
-        """MCP 서버에 연결합니다. (스텁)"""
-        logger.warning("HwpxMcpClient.connect(): MCP 서버 연동은 아직 구현되지 않았습니다.")
+        """MCP 서버 연결 (로컬 API 사용 시 항상 True)."""
+        if self._ops is not None:
+            self._connected = True
+            return True
+        logger.warning("hwpx-mcp-server가 설치되지 않았습니다.")
         return False
 
-    def create_document(self, template_path: str | None = None) -> dict[str, Any]:
-        """새 HWPX 문서를 생성합니다. (스텁)"""
-        raise NotImplementedError("MCP 서버 연동이 아직 구현되지 않았습니다.")
+    def create_document(self, output_path: str) -> dict[str, Any]:
+        """새 빈 HWPX 문서를 생성합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        return self._ops.make_blank(output_path)
 
-    def insert_text(self, doc_id: str, text: str, position: int = -1) -> bool:
-        """문서에 텍스트를 삽입합니다. (스텁)"""
-        raise NotImplementedError("MCP 서버 연동이 아직 구현되지 않았습니다.")
-
-    def insert_table(
+    def add_paragraph(
         self,
-        doc_id: str,
+        path: str,
+        text: str,
+        run_style: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """문서에 문단을 추가합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        kwargs: dict[str, Any] = {}
+        if run_style:
+            kwargs["run_style"] = run_style
+        return self._ops.add_paragraph(path, text, **kwargs)
+
+    def insert_paragraphs_bulk(
+        self,
+        path: str,
+        paragraphs: list[str],
+        run_style: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """문서에 여러 문단을 일괄 추가합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        kwargs: dict[str, Any] = {}
+        if run_style:
+            kwargs["run_style"] = run_style
+        return self._ops.insert_paragraphs_bulk(path, paragraphs, **kwargs)
+
+    def add_table(
+        self,
+        path: str,
         rows: int,
         cols: int,
-        data: list[list[str]] | None = None,
-    ) -> bool:
-        """문서에 표를 삽입합니다. (스텁)"""
-        raise NotImplementedError("MCP 서버 연동이 아직 구현되지 않았습니다.")
+    ) -> dict[str, Any]:
+        """문서에 표를 삽입합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        return self._ops.add_table(path, rows, cols)
 
-    def apply_style(self, doc_id: str, style_name: str) -> bool:
-        """문서에 스타일을 적용합니다. (스텁)"""
-        raise NotImplementedError("MCP 서버 연동이 아직 구현되지 않았습니다.")
+    def fill_template(
+        self,
+        source: str,
+        output: str,
+        replacements: dict[str, str],
+    ) -> dict[str, Any]:
+        """템플릿에서 플레이스홀더를 치환합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        return self._ops.fill_template(source, output, replacements)
 
-    def save(self, doc_id: str, output_path: str) -> str:
-        """문서를 저장합니다. (스텁)"""
-        raise NotImplementedError("MCP 서버 연동이 아직 구현되지 않았습니다.")
+    def convert_hwp_to_hwpx(
+        self,
+        source: str,
+        output: str | None = None,
+    ) -> dict[str, Any]:
+        """HWP 파일을 HWPX로 변환합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        return self._ops.convert_hwp_to_hwpx(source, output)
+
+    def validate(self, path: str) -> dict[str, Any]:
+        """HWPX 파일 구조를 검증합니다."""
+        if self._ops is None:
+            raise RuntimeError("hwpx-mcp-server가 설치되지 않았습니다.")
+        return self._ops.validate_structure(path)
 
 
 # ── 유틸리티 ─────────────────────────────────────────────────────

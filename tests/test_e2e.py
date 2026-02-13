@@ -584,18 +584,20 @@ class TestE2EFullPipeline:
             # 3. content.hpf 유효한 XML
             hpf_xml = zf.read("Contents/content.hpf").decode("utf-8")
             hpf_root = ET.fromstring(hpf_xml)
-            # ha:HWPDocumentPackage 또는 HWPDocumentPackage
-            assert "HWPDocumentPackage" in hpf_root.tag
+            # ha:HWPDocumentPackage (레거시) 또는 OPF package (hwpx-mcp-server)
+            assert "HWPDocumentPackage" in hpf_root.tag or "package" in hpf_root.tag
 
             # 4. header.xml 유효한 XML (폰트, 문자모양, 문단모양)
             header_xml = zf.read("Contents/header.xml").decode("utf-8")
             header_root = ET.fromstring(header_xml)
-            assert "Head" in header_root.tag
+            # Head (레거시) 또는 head (hwpx-mcp-server)
+            assert "Head" in header_root.tag or "head" in header_root.tag
 
             # 5. section0.xml 유효한 XML (본문 콘텐츠)
             section_xml = zf.read("Contents/section0.xml").decode("utf-8")
             section_root = ET.fromstring(section_xml)
-            assert "Section" in section_root.tag
+            # Section (레거시) 또는 sec (hwpx-mcp-server)
+            assert "Section" in section_root.tag or "sec" in section_root.tag
 
     def test_section_content_not_empty(self, tmp_path):
         """모든 섹션 콘텐츠가 비어있지 않음을 확인."""
