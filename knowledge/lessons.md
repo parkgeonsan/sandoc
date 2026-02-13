@@ -18,3 +18,31 @@
 ---
 
 <!-- 아래에 교훈이 자동으로 추가됩니다 -->
+
+## 2026-subluna-demo (20260213_100844)
+공고 유형: 중소벤처기업부 공고 제2025–147호
+
+- **company_overview** (기업개요): 1899자
+- **problem_recognition** (문제인식): 3176자
+- **solution** (실현가능성): 2680자
+- **business_model** (실현가능성): 2170자
+- **market_analysis** (성장전략): 2697자
+- **growth_strategy** (성장전략): 3567자
+- **team** (팀구성): 3039자
+- **financial_plan** (재무계획): 3337자
+- **funding_plan** (재무계획): 4220자
+
+
+## 2026-silversync-청년창업사관학교 (20260213_103456)
+공고 유형: unknown
+
+- **company_overview** (기업개요): 2794자,   번호 목록 4개 사용
+- **problem_recognition** (문제인식): 3564자
+- **solution** (실현가능성): 5145자
+- **business_model** (실현가능성): 3452자
+- **market_analysis** (성장전략): 3575자
+- **growth_strategy** (성장전략): 3978자
+- **team** (팀구성): 4123자
+- **financial_plan** (재무계획): 4484자
+- **funding_plan** (재무계획): 5255자,   표 5개 사용
+

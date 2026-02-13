@@ -1,0 +1,62 @@
+[
+  {
+    "text": "2050 탄소중립 로드맵에 따라 전동이륜차 보급 확대 정책을 추진하고 있으며, 환경부는 2025년까지 전동이륜차 누적 보급 목표",
+    "type": "연도별목표",
+    "section": "problem_recognition",
+    "category": "문제인식"
+  },
+  {
+    "text": "2025년까지 스마트공장 3만 개 보급을 목표",
+    "type": "연도별목표",
+    "section": "problem_recognition",
+    "category": "문제인식"
+  },
+  {
+    "text": "정확도가 98% 이상",
+    "type": "성과_수치",
+    "section": "solution",
+    "category": "실현가능성"
+  },
+  {
+    "text": "2023년 흑자 전환 달성",
+    "type": "연도별목표",
+    "section": "business_model",
+    "category": "실현가능성"
+  },
+  {
+    "text": "① AI 품질보증 기반 기존 거래처 물량 확대",
+    "type": "차별점열거",
+    "section": "market_analysis",
+    "category": "성장전략"
+  },
+  {
+    "text": "② OEM 납품 개시",
+    "type": "차별점열거",
+    "section": "market_analysis",
+    "category": "성장전략"
+  },
+  {
+    "text": "③ 전동이륜차 부품 매출 개시이다",
+    "type": "차별점열거",
+    "section": "market_analysis",
+    "category": "성장전략"
+  },
+  {
+    "text": "장기차입금의 50% 이상",
+    "type": "성과_수치",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "① 사출성형 부품의 AI 비전검사 기반 실시간 불량 검출 및 공정 피드백 방법",
+    "type": "차별점열거",
+    "section": "funding_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "② 전동이륜차 배터리 팩 일체형 카울 경량 사출 성형 방법",
+    "type": "차별점열거",
+    "section": "funding_plan",
+    "category": "재무계획"
+  }
+]

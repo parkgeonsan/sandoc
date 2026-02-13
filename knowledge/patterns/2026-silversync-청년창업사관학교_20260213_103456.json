@@ -1,0 +1,218 @@
+[
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "company_overview",
+    "category": "기업개요",
+    "count": "43",
+    "sample": "| 구분 | 내용 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "company_overview",
+    "category": "기업개요",
+    "count": "8",
+    "sample": "01. 일반현황 및 사업화 과제 개요\n\n---\n\n## 1-1. 신청자 및 기업 정보\n\n| 구분 | 내용 |"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "company_overview",
+    "category": "기업개요",
+    "count": "5",
+    "sample": "1-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "problem_recognition",
+    "category": "문제인식",
+    "count": "28",
+    "sample": "| 지표 | 수치 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "problem_recognition",
+    "category": "문제인식",
+    "count": "5",
+    "sample": "02. 문제인식: 개발동기 및 필요성\n\n---\n\n## 2-1. 현장에서 발견한 문제 — 11년의 기록\n\n대표자 최상아는 2013년부터 11년간 울산 지역 노인요양시설에서 사회복지사"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "problem_recognition",
+    "category": "문제인식",
+    "count": "6",
+    "sample": "2-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "solution",
+    "category": "실현가능성",
+    "count": "28",
+    "sample": "| MVP 테스트 항목 | 방식 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "solution",
+    "category": "실현가능성",
+    "count": "5",
+    "sample": "03. 실현가능성: 개발방안, MVP 현황, 기술스택\n\n---\n\n## 3-1. 솔루션 개요\n\n실버싱크는 **시설관리자용 웹 대시보드**와 **보호자용 모바일 앱**으로 구성된 이원"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "solution",
+    "category": "실현가능성",
+    "count": "6",
+    "sample": "3-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "business_model",
+    "category": "실현가능성",
+    "count": "45",
+    "sample": "| 구분 | 고객 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "business_model",
+    "category": "실현가능성",
+    "count": "5",
+    "sample": "04. 고객 요구사항 대응방안\n\n### 4-1. 고객 요구사항 매트릭스\n\n노인장기요양 시장은 시설 운영자와 보호자라는 두 축의 고객이 존재하며, 각 고객군의 핵심 Pain Poin"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "business_model",
+    "category": "실현가능성",
+    "count": "5",
+    "sample": "4-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "market_analysis",
+    "category": "성장전략",
+    "count": "28",
+    "sample": "| 연도 | 고령인구 비율 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "market_analysis",
+    "category": "성장전략",
+    "count": "5",
+    "sample": "05. 시장분석: 고령화 데이터, TAM/SAM/SOM\n\n### 5-1. 대한민국 고령화 현황\n\n대한민국은 세계에서 가장 빠른 속도로 고령화가 진행되고 있다. 2024년 기준 65"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "market_analysis",
+    "category": "성장전략",
+    "count": "5",
+    "sample": "5-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "growth_strategy",
+    "category": "성장전략",
+    "count": "52",
+    "sample": "| 항목 | 금액 (백만원) |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "growth_strategy",
+    "category": "성장전략",
+    "count": "5",
+    "sample": "06. 성장전략: 자금소요, 시장진입, 성과창출\n\n### 6-1. 자금 소요 계획\n\n총 사업비 **98백만원**(정부지원금 70백만원 + 자기부담 현금 9백만원 + 현물 19백만원"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "growth_strategy",
+    "category": "성장전략",
+    "count": "5",
+    "sample": "6-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "team",
+    "category": "팀구성",
+    "count": "44",
+    "sample": "| 항목 | 내용 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "team",
+    "category": "팀구성",
+    "count": "6",
+    "sample": "07. 팀 구성\n\n### 7-1. 대표자 프로필\n\n실버싱크의 대표자 최상아는 사회복지학과를 졸업한 후, 2013년부터 현재까지 11년간 노인장기요양 현장에서 직접 근무해 온 도메인"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "team",
+    "category": "팀구성",
+    "count": "5",
+    "sample": "7-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "financial_plan",
+    "category": "재무계획",
+    "count": "72",
+    "sample": "| 구분 | 금액(천원) |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "financial_plan",
+    "category": "재무계획",
+    "count": "5",
+    "sample": "08. 사업비 세부내역\n\n### 8-1. 총 사업비 요약\n\n실버싱크는 총 98,000천원의 사업비를 편성하였다. 정부지원금 70,000천원(71.4%)에 자부담 28,000천원(2"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "financial_plan",
+    "category": "재무계획",
+    "count": "5",
+    "sample": "8-1. "
+  },
+  {
+    "type": "table",
+    "description": "표 형식 데이터 제시",
+    "section": "funding_plan",
+    "category": "재무계획",
+    "count": "139",
+    "sample": "| 월차 | 단계 |"
+  },
+  {
+    "type": "numbered_list",
+    "description": "번호 목록 구조",
+    "section": "funding_plan",
+    "category": "재무계획",
+    "count": "5",
+    "sample": "09. 추진일정 및 성과목표\n\n### 9-1. 월별 추진일정\n\n실버싱크는 12개월간의 사업 기간을 **설계·개발 → 테스트 → 출시·확대 → 고도화·확장** 4단계로 구분하여 추진"
+  },
+  {
+    "type": "section_header",
+    "description": "섹션 헤더 구조",
+    "section": "funding_plan",
+    "category": "재무계획",
+    "count": "6",
+    "sample": "9-1. "
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "text": "월매출 2,000만원 달성",
+    "type": "성과_수치",
+    "section": "solution",
+    "category": "실현가능성"
+  },
+  {
+    "text": "월매출 2,000만원 달성",
+    "type": "성과_수치",
+    "section": "business_model",
+    "category": "실현가능성"
+  },
+  {
+    "text": "① 인건비 (42,000천원, 42.9%)",
+    "type": "차별점열거",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "② 외주용역비 (15,000천원, 15.3%)",
+    "type": "차별점열거",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "③ 지식재산권 (4,000천원, 4.1%)",
+    "type": "차별점열거",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "④ 마케팅 (10,000천원, 10.2%)",
+    "type": "차별점열거",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "⑤ 시장조사 (8,000천원, 8.2%)",
+    "type": "차별점열거",
+    "section": "financial_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "매출 1,500만원 돌파",
+    "type": "성과_수치",
+    "section": "funding_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "활성사용자 300명 달성",
+    "type": "성과_수치",
+    "section": "funding_plan",
+    "category": "재무계획"
+  },
+  {
+    "text": "월매출 2,000만원 달성",
+    "type": "성과_수치",
+    "section": "funding_plan",
+    "category": "재무계획"
+  }
+]
