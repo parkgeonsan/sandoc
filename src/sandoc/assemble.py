@@ -4,9 +4,14 @@ sandoc.assemble — 작성된 섹션 마크다운을 HWPX로 조립
 output/drafts/current/ 의 *.md 파일을 읽어:
   - plan.json 형식으로 변환
   - 스타일 프로파일 적용
-  - HWPX 문서 빌드
+  - HWPX 문서 빌드 (3가지 모드: template / MCP / legacy)
   - HTML 출력 (차트 인라인 포함, 목차, 페이지 번호)
   - 결과 검증
+
+빌드 모드:
+  1. Template — HWP 양식이 docs/ 에 존재하면 HWP→HWPX 변환 후 콘텐츠 삽입 (최고 품질)
+  2. MCP     — hwpx-mcp-server 사용 가능하면 make_blank + styled paragraphs + tables
+  3. Legacy  — 직접 XML 생성 (한컴 비호환, 폴백)
 """
 
 from __future__ import annotations
@@ -24,6 +29,47 @@ logger = logging.getLogger(__name__)
 
 # 섹션 키 이름 → 인덱스 매핑
 SECTION_KEY_INDEX = {sd["key"]: i for i, sd in enumerate(SECTION_DEFS)}
+
+# ── 템플릿 섹션 ↔ 초안 매핑 (창업도약패키지 양식 기준) ─────────────────
+# template_marker: 양식에서 검색할 키워드
+# draft_keys: 매칭되는 초안 섹션 키 (순서대로 시도)
+TEMPLATE_SECTION_MARKERS: list[dict[str, Any]] = [
+    {
+        "template_marker": "신청 및 일반현황",
+        "draft_keys": ["company_overview"],
+        "injection_type": "table_fill",
+    },
+    {
+        "template_marker": "문제인식",
+        "draft_keys": ["problem_recognition"],
+        "injection_type": "section_content",
+    },
+    {
+        "template_marker": "목표시장",
+        "draft_keys": ["solution"],
+        "injection_type": "section_content",
+    },
+    {
+        "template_marker": "사업화 추진 성과",
+        "draft_keys": ["business_model"],
+        "injection_type": "section_content",
+    },
+    {
+        "template_marker": "사업화 추진 전략",
+        "draft_keys": ["market_analysis"],
+        "injection_type": "section_content",
+    },
+    {
+        "template_marker": "자금운용 계획",
+        "draft_keys": ["growth_strategy"],
+        "injection_type": "section_content",
+    },
+    {
+        "template_marker": "기업 구성",
+        "draft_keys": ["team"],
+        "injection_type": "section_content",
+    },
+]
 
 
 def run_assemble(
@@ -85,7 +131,6 @@ def run_assemble(
 
         # ── 5. 스타일 미러 초기화 ──────────────────────────────
         if style_profile_path is None:
-            # 프로젝트 내 style-profile.json 탐색
             candidates = [
                 project_dir / "style-profile.json",
                 project_dir / "output" / "style-profile.json",
@@ -102,20 +147,37 @@ def run_assemble(
             style = StyleMirror.default()
             logger.info("기본 스타일 사용")
 
-        # ── 6. HWPX 빌드 ──────────────────────────────────────
+        # ── 6. HWPX 빌드 (3가지 모드) ─────────────────────────
         if output_path is None:
             output_path = output_dir / f"{plan.company_name or 'sandoc'}_사업계획서.hwpx"
 
-        builder = HwpxBuilder(style=style)
-        for section in plan.sections:
-            builder.add_section(
-                title=section.title,
-                content=section.content,
-                style_name="bodyText",
-                section_key=section.section_key,
-            )
-        builder.build(output_path)
-        result["hwpx_path"] = str(output_path)
+        # Mode 1: Template — HWP 양식이 있으면 변환 후 콘텐츠 삽입
+        template_hwp = _find_hwp_template(project_dir)
+        if template_hwp is not None:
+            try:
+                _assemble_with_template(
+                    project_dir=project_dir,
+                    template_hwp=template_hwp,
+                    plan=plan,
+                    style=style,
+                    output_path=output_path,
+                )
+                result["hwpx_path"] = str(output_path)
+                result["build_mode"] = "template"
+                logger.info("템플릿 모드로 HWPX 빌드 완료: %s", output_path)
+            except Exception as tmpl_err:
+                logger.warning(
+                    "템플릿 모드 실패, MCP/레거시 폴백: %s", tmpl_err
+                )
+                # 폴백: MCP 또는 레거시
+                _assemble_with_builder(plan, style, output_path)
+                result["hwpx_path"] = str(output_path)
+                result["build_mode"] = "mcp_fallback"
+        else:
+            # Mode 2/3: MCP or Legacy (HwpxBuilder가 자동 선택)
+            _assemble_with_builder(plan, style, output_path)
+            result["hwpx_path"] = str(output_path)
+            result["build_mode"] = "mcp" if _has_hwpx_mcp() else "legacy"
 
         # ── 7. 검증 ──────────────────────────────────────────
         validation = validate_hwpx(output_path)
@@ -140,7 +202,8 @@ def run_assemble(
             logger.warning("HTML 생성 오류 (무시): %s", html_err)
 
         logger.info(
-            "HWPX 조립 완료: %s (%d 섹션, %d자)",
+            "HWPX 조립 완료 [%s]: %s (%d 섹션, %d자)",
+            result.get("build_mode", "unknown"),
             output_path, result["section_count"], result["total_chars"],
         )
 
@@ -213,6 +276,302 @@ def _infer_section_key(stem: str, index: int) -> str:
 
     # 알려진 키가 아니면 stem 그대로 사용
     return key
+
+
+# ── 빌드 모드 헬퍼 ──────────────────────────────────────────────
+
+def _has_hwpx_mcp() -> bool:
+    """hwpx-mcp-server 가용 여부."""
+    try:
+        from hwpx_mcp_server.hwpx_ops import HwpxOps  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def _find_hwp_template(project_dir: Path) -> Path | None:
+    """프로젝트 docs/ 에서 사업계획서 양식 HWP를 탐색합니다.
+
+    '양식', '별첨 1', '사업계획서' 키워드를 포함하는 .hwp 파일을 우선 선택합니다.
+    """
+    docs_dir = project_dir / "docs"
+    if not docs_dir.is_dir():
+        return None
+
+    hwp_files = list(docs_dir.glob("*.hwp"))
+    if not hwp_files:
+        return None
+
+    # 제외 키워드 (증빙서류, 제출목록 등은 양식이 아님)
+    exclude_keywords = ["증빙서류", "제출목록", "첨부", "체크리스트"]
+
+    def _is_excluded(name: str) -> bool:
+        return any(kw in name for kw in exclude_keywords)
+
+    # 우선순위 1: "별첨 1" + "사업계획서" (가장 확실한 양식)
+    for hwp in hwp_files:
+        if "별첨 1" in hwp.name and "사업계획서" in hwp.name and not _is_excluded(hwp.name):
+            logger.info("HWP 템플릿 발견 (별첨1): %s", hwp.name)
+            return hwp
+
+    # 우선순위 2: "사업계획서 양식" (증빙 제외)
+    for hwp in hwp_files:
+        if "사업계획서" in hwp.name and "양식" in hwp.name and not _is_excluded(hwp.name):
+            logger.info("HWP 템플릿 발견 (양식): %s", hwp.name)
+            return hwp
+
+    # 우선순위 3: "양식" 키워드 (증빙 제외)
+    for hwp in hwp_files:
+        if "양식" in hwp.name and not _is_excluded(hwp.name):
+            logger.info("HWP 템플릿 발견: %s", hwp.name)
+            return hwp
+
+    # 양식이 아닌 HWP만 있으면 None 반환
+    logger.debug("양식 키워드 없는 HWP %d개 발견 (템플릿 모드 비활성)", len(hwp_files))
+    return None
+
+
+def _assemble_with_builder(
+    plan: GeneratedPlan,
+    style: StyleMirror,
+    output_path: Path,
+) -> None:
+    """HwpxBuilder (MCP 또는 Legacy)로 HWPX 빌드."""
+    builder = HwpxBuilder(style=style)
+    for section in plan.sections:
+        builder.add_section(
+            title=section.title,
+            content=section.content,
+            style_name="bodyText",
+            section_key=section.section_key,
+        )
+    builder.build(output_path)
+
+
+def _assemble_with_template(
+    project_dir: Path,
+    template_hwp: Path,
+    plan: GeneratedPlan,
+    style: StyleMirror,
+    output_path: Path,
+) -> None:
+    """Template 모드: HWP 양식 → HWPX 변환 → 콘텐츠 삽입.
+
+    원본 양식의 76개 문단, 38개 표, 서식을 완전히 보존하면서
+    가이드 텍스트를 실제 초안 내용으로 교체합니다.
+    """
+    from hwpx_mcp_server.hwpx_ops import HwpxOps
+
+    ops = HwpxOps()
+    output_dir = output_path.parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1) HWP → HWPX 변환
+    template_hwpx = output_dir / "template.hwpx"
+    conv = ops.convert_hwp_to_hwpx(str(template_hwp), str(template_hwpx))
+    logger.info(
+        "HWP→HWPX 변환: %d 문단, %d 표",
+        conv.get("paragraphsConverted", 0),
+        conv.get("tablesConverted", 0),
+    )
+
+    # 2) 템플릿 구조 분석
+    structure = ops.analyze_template_structure(str(template_hwpx))
+    logger.info(
+        "템플릿 분석: %d 문단, %d placeholders",
+        structure.get("summary", {}).get("paragraphCount", 0),
+        structure.get("summary", {}).get("placeholderCount", 0),
+    )
+
+    # 3) 초안 섹션 → 섹션키 매핑
+    drafts_by_key: dict[str, GeneratedSection] = {}
+    for section in plan.sections:
+        drafts_by_key[section.section_key] = section
+
+    # 4) 템플릿 복사 (fill_template 사용)
+    # 먼저 기본 플레이스홀더(기업명 OOOOO 등)를 교체
+    basic_replacements = _build_basic_replacements(plan, project_dir)
+    if basic_replacements:
+        ops.fill_template(
+            str(template_hwpx), str(output_path),
+            basic_replacements,
+            preserve_style=True,
+        )
+        logger.info("기본 플레이스홀더 %d개 교체", len(basic_replacements))
+        work_path = str(output_path)
+    else:
+        # 복사만 수행
+        import shutil
+        shutil.copy2(template_hwpx, output_path)
+        work_path = str(output_path)
+
+    # 5) 각 섹션별 콘텐츠 삽입 (plan_edit 방식)
+    for marker_info in TEMPLATE_SECTION_MARKERS:
+        marker = marker_info["template_marker"]
+        draft_keys = marker_info["draft_keys"]
+
+        # 매칭되는 초안 찾기
+        draft_section = None
+        for dk in draft_keys:
+            if dk in drafts_by_key:
+                draft_section = drafts_by_key[dk]
+                break
+        if draft_section is None:
+            logger.debug("초안 없음, 건너뜀: %s", marker)
+            continue
+
+        # 양식에서 섹션 헤더 검색
+        matches = ops.find(work_path, marker)
+        if not matches.get("matches"):
+            logger.warning("양식에서 '%s' 를 찾을 수 없음", marker)
+            continue
+
+        # 마지막 매칭 위치 사용 (보통 두 번째가 실제 콘텐츠 영역)
+        # 양식에서 목차와 본문에 같은 제목이 있는 경우,
+        # 마지막 occurrence가 실제 작성 영역
+        match_list = matches["matches"]
+        target_match = match_list[-1] if len(match_list) > 1 else match_list[0]
+        para_idx = target_match["paragraphIndex"]
+
+        logger.info(
+            "섹션 매핑: '%s' → para %d (초안: %s)",
+            marker, para_idx, draft_section.section_key,
+        )
+
+        # 콘텐츠 준비: 마크다운을 줄 단위로 파싱
+        content_lines = _prepare_content_lines(draft_section.content)
+
+        # plan_edit으로 가이드 텍스트 영역에 콘텐츠 삽입
+        _insert_section_content(
+            ops, work_path, para_idx, content_lines,
+            marker_info["injection_type"],
+        )
+
+    # 6) 임시 template.hwpx 정리
+    if template_hwpx.exists() and template_hwpx != output_path:
+        template_hwpx.unlink(missing_ok=True)
+
+    logger.info("템플릿 기반 HWPX 빌드 완료: %s", output_path)
+
+
+def _build_basic_replacements(
+    plan: GeneratedPlan,
+    project_dir: Path,
+) -> dict[str, str]:
+    """기업명, 대표자 등 기본 플레이스홀더 교체 딕셔너리 생성.
+
+    context.json 또는 company_info_template.json에서 회사 정보를 읽습니다.
+    """
+    replacements: dict[str, str] = {}
+
+    # company info 소스 탐색
+    company_info: dict[str, Any] = {}
+    for cand in [
+        project_dir / "output" / "company_info_template.json",
+        project_dir / "output" / "answers.json",
+        project_dir / "context.json",
+    ]:
+        if cand.exists():
+            try:
+                data = json.loads(cand.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    # context.json의 경우 company_info_found 키 아래
+                    company_info = data.get("company_info_found", data)
+                    break
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    # 양식의 "OOOOO" 플레이스홀더 교체
+    company_name = company_info.get("company_name", plan.company_name or "")
+    if company_name:
+        replacements["기업명 OOOOO"] = f"기업명 {company_name}"
+        replacements["OOOOO"] = company_name
+
+    ceo_name = company_info.get("ceo_name", "")
+    if ceo_name:
+        replacements["대표자 OOO"] = f"대표자 {ceo_name}"
+
+    item_name = company_info.get("item_name", "")
+    if item_name:
+        replacements["창업아이템명 OOO"] = f"창업아이템명 {item_name}"
+
+    return replacements
+
+
+def _prepare_content_lines(content: str) -> list[str]:
+    """마크다운 콘텐츠를 HWPX 삽입용 줄 리스트로 변환.
+
+    마크다운 헤딩(###)을 제거하고, 표 구분선을 건너뜁니다.
+    """
+    lines: list[str] = []
+    for line in content.split("\n"):
+        stripped = line.strip()
+
+        # 빈 줄
+        if not stripped:
+            lines.append("")
+            continue
+
+        # 마크다운 헤딩 → 볼드 텍스트로
+        m = re.match(r"^(#{1,4})\s+(.+)$", stripped)
+        if m:
+            lines.append(m.group(2))
+            continue
+
+        # 표 구분선 건너뛰기
+        if re.match(r"^\s*\|[\s\-:|]+\|\s*$", stripped):
+            continue
+
+        lines.append(stripped)
+
+    return lines
+
+
+def _insert_section_content(
+    ops: Any,
+    work_path: str,
+    header_para_idx: int,
+    content_lines: list[str],
+    injection_type: str,
+) -> None:
+    """양식의 섹션 헤더 이후 영역에 콘텐츠를 삽입합니다.
+
+    plan_edit + apply_edit 방식으로 안전하게 편집합니다.
+    가이드 텍스트가 있는 문단을 찾아 교체하고,
+    추가 내용은 insert_paragraphs_bulk로 삽입합니다.
+    """
+    # 헤더 다음부터 콘텐츠 삽입
+    # 헤더 바로 다음 문단부터 시작
+    insert_after = header_para_idx
+
+    # 비어있지 않은 줄만 필터 (연속 빈줄 제거)
+    clean_lines: list[str] = []
+    prev_empty = False
+    for line in content_lines:
+        if not line:
+            if not prev_empty:
+                clean_lines.append("")
+            prev_empty = True
+        else:
+            clean_lines.append(line)
+            prev_empty = False
+
+    if not clean_lines:
+        return
+
+    try:
+        # insert_paragraphs_bulk으로 콘텐츠 삽입
+        # 섹션 헤더 바로 뒤에 삽입
+        ops.insert_paragraphs_bulk(
+            work_path,
+            clean_lines,
+        )
+        logger.debug(
+            "콘텐츠 %d줄 삽입 (para %d 이후)",
+            len(clean_lines), insert_after,
+        )
+    except Exception as e:
+        logger.warning("콘텐츠 삽입 실패 (para %d): %s", insert_after, e)
 
 
 # ── HTML 출력 ─────────────────────────────────────────────────

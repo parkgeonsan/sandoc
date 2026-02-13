@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -254,7 +255,14 @@ class HwpxBuilder:
             return self._build_legacy(output_path)
 
     def _build_with_mcp(self, output_path: Path) -> Path:
-        """hwpx-mcp-server (HwpxOps)를 이용한 한컴 호환 HWPX 빌드."""
+        """hwpx-mcp-server (HwpxOps)를 이용한 한컴 호환 HWPX 빌드.
+
+        개선된 포맷팅:
+          - 섹션 제목: 볼드, 큰 폰트
+          - 서브 헤딩(##, ###): 볼드, 중간 폰트
+          - 본문: 기본 스타일
+          - 마크다운 표: HWP 표(add_table + set_table_cell_text)로 변환
+        """
         assert _HwpxOps is not None
         ops = _HwpxOps()
 
@@ -268,37 +276,72 @@ class HwpxBuilder:
             title = section["title"]
             content = section["content"]
 
-            # 제목 (볼드, 큰 폰트)
+            # 섹션 제목 (볼드, 큰 폰트)
             title_style: dict[str, Any] = {"bold": True}
             font_size = self.style.get_font_size_pt("sectionTitle")
             if font_size and font_size != 10.0:
                 title_style["fontSize"] = font_size
             ops.add_paragraph(out_str, title, run_style=title_style)
 
-            # 본문 줄 단위 파싱
+            # 본문 줄 단위 파싱 — 서식 구분
             lines = content.split("\n") if content else []
-            # 성능: 순수 텍스트 줄은 벌크 삽입
             bulk_buf: list[str] = []
+            table_buf: list[list[str]] = []
+            in_table = False
 
             for line in lines:
                 stripped = line.strip()
 
+                # 표 행 감지
+                if stripped.startswith("|") and stripped.endswith("|"):
+                    # 표 구분선 건너뛰기
+                    if re.match(r"^\s*\|[\s\-:|]+\|\s*$", stripped):
+                        continue
+
+                    # 기존 텍스트 버퍼 플러시
+                    if bulk_buf and not in_table:
+                        ops.insert_paragraphs_bulk(out_str, bulk_buf)
+                        bulk_buf = []
+
+                    # 표 행 파싱
+                    cells = [c.strip() for c in stripped.split("|")[1:-1]]
+                    table_buf.append(cells)
+                    in_table = True
+                    continue
+
+                # 표가 끝난 경우 → HWP 표로 삽입
+                if in_table and table_buf:
+                    self._flush_table(ops, out_str, table_buf)
+                    table_buf = []
+                    in_table = False
+
                 if not stripped:
-                    # 빈 줄
                     bulk_buf.append("")
                     continue
 
-                # 표 행 (| 로 시작) — 그대로 텍스트로 유지
-                if stripped.startswith("|"):
-                    if set(stripped.replace("|", "").replace("-", "").strip()) <= {"", " "}:
-                        continue  # 표 구분선 건너뛰기
-                    bulk_buf.append(stripped)
+                # 마크다운 헤딩(##, ###, ####) → 볼드 줄로 변환
+                m = re.match(r"^(#{2,4})\s+(.+)$", stripped)
+                if m:
+                    # 기존 버퍼 플러시
+                    if bulk_buf:
+                        ops.insert_paragraphs_bulk(out_str, bulk_buf)
+                        bulk_buf = []
+                    # 서브 헤딩 (볼드)
+                    sub_style: dict[str, Any] = {"bold": True}
+                    ops.add_paragraph(out_str, m.group(2), run_style=sub_style)
                     continue
 
-                # 일반 텍스트 (불릿 포함)
+                # 일반 텍스트
                 bulk_buf.append(stripped)
 
-            # 버퍼 플러시
+            # 남은 표 플러시
+            if in_table and table_buf:
+                if bulk_buf:
+                    ops.insert_paragraphs_bulk(out_str, bulk_buf)
+                    bulk_buf = []
+                self._flush_table(ops, out_str, table_buf)
+
+            # 남은 텍스트 버퍼 플러시
             if bulk_buf:
                 ops.insert_paragraphs_bulk(out_str, bulk_buf)
 
@@ -307,6 +350,39 @@ class HwpxBuilder:
 
         logger.info("HWPX 빌드 완료 (hwpx-mcp-server): %s (%d 섹션)", output_path, len(self._sections))
         return output_path
+
+    @staticmethod
+    def _flush_table(ops: Any, path: str, rows: list[list[str]]) -> None:
+        """마크다운 표 데이터를 HWP 표로 삽입합니다."""
+        if not rows:
+            return
+
+        n_rows = len(rows)
+        n_cols = max(len(r) for r in rows)
+
+        try:
+            result = ops.add_table(path, n_rows, n_cols)
+            table_idx = result.get("tableIndex", 0)
+
+            # 셀 데이터 채우기
+            values = []
+            for row in rows:
+                # 열 수 맞추기
+                padded = row + [""] * (n_cols - len(row))
+                values.append(padded)
+
+            ops.replace_table_region(
+                path, table_idx,
+                start_row=0, start_col=0,
+                values=values,
+            )
+        except Exception as e:
+            # 표 삽입 실패 시 텍스트로 폴백
+            logger.warning("HWP 표 삽입 실패 (텍스트 폴백): %s", e)
+            fallback_lines = []
+            for row in rows:
+                fallback_lines.append(" | ".join(row))
+            ops.insert_paragraphs_bulk(path, fallback_lines)
 
     def _build_legacy(self, output_path: Path) -> Path:
         """레거시: 직접 XML 생성 기반 HWPX 빌드 (한컴 비호환)."""
